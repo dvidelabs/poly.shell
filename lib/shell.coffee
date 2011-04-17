@@ -2,7 +2,6 @@ cpspawn = require('child_process').spawn
 util = require 'util'
 
 spawn = (cmd, args, opts, cb) ->
-  cb = null # testing
   args = [] unless args
   opts = {} unless opts
   if typeof args == 'function'
@@ -95,9 +94,7 @@ class Shell
   #       for now, everything goes to stdout concurrently
   
   run: (cmd, cb) ->
-    _cb = null
-    if cb
-      _cb = (ec) => cb(ec)
+    _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
     if typeof cmd != 'string'
@@ -112,9 +109,7 @@ class Shell
     if typeof args == 'function'
       cb = args
       args = []
-    _cb = null
-    if cb
-      _cb = (ec) => cb(ec)
+    _cb = (ec) => cb.call(this, ec) if cb
     if @remote
       args = @args.concat args
       spawn @shell, args, @log, _cb
