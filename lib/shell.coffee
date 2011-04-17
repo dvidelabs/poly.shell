@@ -25,15 +25,18 @@ spawn = (cmd, args, opts, cb) ->
 
 class Shell
   
-  # usage: sh = new Shell [opts | host]
+  # usage: sh = new Shell([host|opts])
   # 
   # examples:
   #   sh = new Shell();
   #   bash = new Shell({sh: /bin/bash});
+  #   bash2 = new Shell("example.com", {log:true});
   #   ex = new Shell({host:example.com, user:"foo", port:2200});
   #   ex2 = new Shell("foo@example.com");
   #
-  # opts:
+  # host <string> optional, takes precedence over opts.host
+  #
+  # opts <hash> optional:
   # If host or opts.host is defined, a remote shell is created,
   # otherwise a local shell is created (setting or not setting opts.ssh does not affect this)
   # opts.name <string> optional informative system name used for logging (not user name for remote login).
@@ -47,6 +50,8 @@ class Shell
   #   note: opt.args are for the shell, not for the commands that the shell might run later
   constructor: (opts) ->
     args = []
+    if typeof opts == 'string'
+      opts = {host: opts}
     opts = {} unless opts
     @log = opts and opts.log? and opts.log
     pushCustomArgs = ->
@@ -104,18 +109,19 @@ class Shell
     this
 
   # on local systems calls a process directly bypassing the shell
-  # on remote systems runs via shell, but arguments given unescaped in an array
+  # on remote systems runs via shell
+  # args should be shell escaped TODO: consider escaping inside this op
   spawn: (cmd, args, cb) ->
     if typeof args == 'function'
       cb = args
       args = []
     _cb = (ec) => cb.call(this, ec) if cb
     if @remote
-      args = @args.concat args
-      spawn @shell, args, @log, _cb
-    else    
-      spawn cmd, args, {name: @name, log: @log}, _cb
+      _args = @args.concat []
+      _args.push cmd
+      args = _args.concat args
+      cmd = @shell
+    spawn cmd, args, {name: @name, log: @log}, _cb
     this
 
 exports.shell = (opts) -> new Shell opts
-
