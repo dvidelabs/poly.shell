@@ -1,12 +1,17 @@
-run_remote = require('../ploy').run_remote
+shell = require('../ploy').shell
 
-console.log 'NOTE: test requires .ssh/config configured with example.com host and user'
-
+# note: setup example.com to some useful server in .ssh/config
 host = 'example.com'
 
-run_remote host, 'ls'
-run_remote "example.com", 'ls', ['.'], (code) -> console.log "failed" if code != 0
-run_remote "foo@example.com:2200", 'ls'
-run_remote {host: "example.com", user:"foo", port:"2200"}, 'ls'
+shell(host).run 'ls'
 
-run_remote host, 'bad-command'
+sh1 = shell(host).run 'ls -al', -> console.log "done"
+console.log "operating on system #{sh1.name}"
+eh = (ec) -> if ec then console.log "#{this.name} failed"
+
+# remote spawn fails
+#shell("example.com").spawn "ls", ["."], eh
+
+shell({host: "example.com", user: "foo", port:2200}).run "ls", eh
+
+shell(host).run 'bad-command'
