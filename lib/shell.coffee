@@ -126,17 +126,4 @@ class Shell
     spawn cmd, args, {name: @name, log: @log}, _cb
     this
 
-  sudo: (cmd, cb)
-    _cb = (ec) => cb.call(this, ec) if cb
-    if cmd instanceof Array
-      cmd = cmd.join(' && ')
-    if typeof cmd != 'string'
-      throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
-    args = @args.concat ['-t', 'sudo', '-p', 'Password:'] # -t: enable tty for sudo password query
-    args = args.concat [cmd.toString()]
-    child = cpspawn
-    spawn @shell, args, {name: @name, log: @log}, _cb
-    this
-
-
 exports.shell = (opts) -> new Shell opts
