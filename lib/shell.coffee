@@ -19,6 +19,8 @@ spawn = (cmd, args, opts, cb) ->
   child.stderr.on 'data', (data) ->
     if (/^execvp\(\)/.test(data.asciiSlice(0,data.length)))
       console.log cmd + ': ' + data.asciiSlice 10
+    else if opts.askpass and (/^Password:'/).test(data.asciiSlice(0,data.length)))
+      
     else
       console.log "error: " + data.toString()
   child.on 'exit', cb if cb
@@ -123,5 +125,18 @@ class Shell
       cmd = @shell
     spawn cmd, args, {name: @name, log: @log}, _cb
     this
+
+  sudo: (cmd, cb)
+    _cb = (ec) => cb.call(this, ec) if cb
+    if cmd instanceof Array
+      cmd = cmd.join(' && ')
+    if typeof cmd != 'string'
+      throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
+    args = @args.concat ['-t', 'sudo', '-p', 'Password:'] # -t: enable tty for sudo password query
+    args = args.concat [cmd.toString()]
+    child = cpspawn
+    spawn @shell, args, {name: @name, log: @log}, _cb
+    this
+
 
 exports.shell = (opts) -> new Shell opts
