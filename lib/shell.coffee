@@ -1,9 +1,19 @@
 cpspawn = require('child_process').spawn
 util = require 'util'
 
+
+# TODO: for sudo: create a password cache with timeout
+#   - Ubunto 10.04 remembers sudo over ssh
+#   - Debian Squeeze doesn't, so user is prompted repeatedly
+#   Allow cache to be preloaded, for example by running password
+#   early in script, or by using a master password for encrypted host
+#   passwords.
+# TODO: generate random password prompt strings such that
+#   dumping source of this script doesn't trigger password prompter
 spawn = (cmd, args, opts, cb) ->
   args = [] unless args
   opts = {} unless opts
+  name = if opts.name? then opts.name + ": " else  ""
   if typeof args == 'function'
       cb = args
       args = []
@@ -11,18 +21,28 @@ spawn = (cmd, args, opts, cb) ->
       cb = opts
       opts = {}
   if opts.log
-    name = if opts.name? then opts.name + ": " else  ""
     console.log "#{name}#{cmd} #{args.join(' ')}"
   child = cpspawn cmd, args
   child.stdout.on 'data', (data) ->
-    process.stdout.write data
-  child.stderr.on 'data', (data) ->
-    if (/^execvp\(\)/.test(data.asciiSlice(0,data.length)))
-      console.log cmd + ': ' + data.asciiSlice 10
-    else if opts.askpass and (/^Password:'/).test(data.asciiSlice(0,data.length)))
-      
+    if /(^:w6kffb47:Password:w6kffb47:$)|(\n:w6kffb47:Password:w6kffb47:$)/.test data.asciiSlice(0,data.length)
+      console.log "#{name} prompts for password" if opts.log
+      require('./password').askPassword (err, pw) ->
+        if err == 'SIGINT'
+          process.kill child.pid
+          cb 'user killed shell during password query'
+        else if err
+          cb err
+        else
+          child.stdin.write pw + "\n"
     else
-      console.log "error: " + data.toString()
+      process.stdout.write data
+  child.stderr.on 'data', (data) ->
+    ascii = data.asciiSlice(0,data.length)
+    if /^execvp\(\)/.test ascii
+      console.log cmd + ': ' + data.asciiSlice 10
+    else if /tcgetattr: Inappropriate ioctl for device/.test ascii
+      console.log "expected error from ssh -t -t operation:" if opts.log
+      console.log "  " + data.toString() if opts.log
   child.on 'exit', cb if cb
 
 class Shell
@@ -125,5 +145,22 @@ class Shell
       cmd = @shell
     spawn cmd, args, {name: @name, log: @log}, _cb
     this
+
+  # TODO: this is far from complete, must respond to password requests,
+  #       or set password from elsewhere
+  sudo: (cmd, cb) ->
+    _cb = (ec) => cb.call(this, ec) if cb
+    if cmd instanceof Array
+      cmd = cmd.join(' && ')
+    if typeof cmd != 'string'
+      throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
+    # -t: enable tty for sudo password query
+    # -t -t: because our local stdin is not tty
+    args = @args.concat ['-t', '-t', 'sudo', '-p', ':w6kffb47:Password:w6kffb47:'] 
+    args = args.concat [cmd.toString()]
+    child = cpspawn
+    spawn @shell, args, {name: @name, askpass: true, log: @log}, _cb
+    this
+
 
 exports.shell = (opts) -> new Shell opts
