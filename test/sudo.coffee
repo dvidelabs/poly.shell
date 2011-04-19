@@ -19,3 +19,6 @@ host.sudo 'ls ~'
 # test sudo detector
 host.run 'sudo tail /var/log/auth.log | grep root'
 
+host.promptPassword()
+
+host.presetPassword('hello')

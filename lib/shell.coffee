@@ -184,4 +184,16 @@ class Shell
       }, _cb
     this
 
+  # prompt user for password to preload password cache
+  # not strictly needed, but may be more userfriendly
+  promptPassword: (cb) ->
+    password.agent(@passwordCache).getPassword(cb)
+  
+  # like prompt password, but programmatically set password
+  setPassword: (password) ->
+    @passwordCache.set(password)
+    
+  # prevent new commands from using old password
+  resetPassword: -> @passwordCache.reset()
+
 exports.shell = (opts) -> new Shell opts

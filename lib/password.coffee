@@ -88,7 +88,7 @@ class PasswordAgent
   setPassword: (pw) ->
     @cache.set(pw)
     console.log "setting password"
-  getPassword: (cb) ->
+  getPassword: (cb = ->) ->
     @attempts++
     pw = @cache.get()
     if @attempts == 1 and pw
