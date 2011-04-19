@@ -73,7 +73,7 @@ class PasswordAgent
     return null
     
   resetAttempts: ->
-    @attempts = null
+    @attempts = 0
   setPassword: (pw) ->
     @cache = pw
     @parent.setPassword pw if @parent
