@@ -4,7 +4,6 @@
 # on others (Debian Squeeze), password must be reentered for new connections
 # the shell contains a password agent to alleviate this problem
 # hence we should enter the sudo password at most once in the following
-# (timing issues may prevent this from working though)
 
 host = require('../ploy').shell(host:"example.com", log:true)
 
