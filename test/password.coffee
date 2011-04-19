@@ -1,3 +1,4 @@
+assert = require 'assert'
 pw = require '../lib/password'
 
 pw.askPasswordTwice (err, password) ->
@@ -11,3 +12,19 @@ pw.askPasswordTwice (err, password) ->
     console.log "password accepted"
     console.log "first password was '#{password}'"
     pw.askPassword("Next password:", (err, password2) -> console.log "last password was '#{password2}'" unless err)
+
+pwa = pw.agent()
+pwa2 = pw.agent(pwa)
+
+pwa.setPassword('hello')
+assert.equal pwa.getCachedPassword(), 'hello'
+
+pwa.getPassword (err, password) ->
+  assert.equal(password, 'hello')
+  unless err
+    pwa.resetAttempts()
+  
+  assert.equal pwa2.getCachedPassword(), 'hello'
+
+  pwa2.getPassword (err, password) ->
+    assert.equal(password, 'hello')

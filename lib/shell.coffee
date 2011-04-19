@@ -2,12 +2,6 @@ password = require './password'
 cpspawn = require('child_process').spawn
 util = require './util'
 
-# TODO: for sudo: create a password cache with timeout
-#   - Ubunto 10.04 remembers sudo over ssh
-#   - Debian Squeeze doesn't, so user is prompted repeatedly
-#   Allow cache to be preloaded, for example by running password
-#   early in script, or by using a master password for encrypted host
-#   passwords.
 spawn = (cmd, args, opts, cb) ->
   args = [] unless args
   opts = {} unless opts
@@ -21,27 +15,35 @@ spawn = (cmd, args, opts, cb) ->
   if opts.log
     console.log "#{name} : #{cmd} #{args.join(' ')}"
   child = cpspawn cmd, args
+  pwa = opts.passwordAgent
+  child.on 'exit', cb if cb
   child.stdout.on 'data', (data) ->
-    if opts.passwordPrompt
-      ascii = data.asciiSlice(0,data.length)
-      process.stdout.flush()
-      if ascii.indexOf(opts.passwordPrompt) >= 0
-        process.stdout.write ("#{name} prompts for password\n" + data.toString().replace(opts.passwordPrompt, "Password:"))
-        password.readSilentLine (err, pw) ->
-          if err
-            process.kill child.pid
-            process.kill process.pid if err == 'SIGINT'
-          else
-            if child.stdin.writable
-              child.stdin.write pw + "\n"
-            else
-              cb 'could not write password'
-      else
-        process.stdout.write data
+    return process.stdout.write data unless pwa
+    ascii = data.asciiSlice 0
+    process.stdout.flush()
+    if ascii.indexOf(pwa.prompt) < 0
+      return process.stdout.write data  
     else
-      process.stdout.write data
+      pwa.getPassword (err, pw) ->
+        if err
+          console.log err if opts.log
+          process.kill child.pid
+          process.kill process.pid if err == 'SIGINT'
+          cb err
+        else if child.stdin.writable
+          console.log "writing password to #{name}" if opts.log
+          child.stdin.write pw + "\n"
+        else
+          err = 'could not write password'
+          process.kill child.pid
+          console.log err if opts.log
+          cb err
+      # note: apparently the write below must be after the call to
+      #       pwa.getPassword (or the equivalent require('./password).readSilentLine).
+      #       otherwise the password is not accepted for some reason
+      process.stdout.write ("#{name} prompts for password\n" + data.toString().replace(pwa.prompt, "Password:"))
   child.stderr.on 'data', (data) ->
-    ascii = data.asciiSlice(0,data.length)
+    ascii = data.asciiSlice 0
     if /^execvp\(\)/.test ascii
       console.log cmd + ': ' + data.asciiSlice 10
     else if /tcgetattr: Inappropriate ioctl for device/.test ascii
@@ -49,7 +51,6 @@ spawn = (cmd, args, opts, cb) ->
       console.log "  " + data.toString() if opts.log
     else
       console.log data.toString()
-  child.on 'exit', cb if cb
 
 class Shell
   
@@ -73,7 +74,8 @@ class Shell
   # opts.ssh <string> allows for a specific ssh path used when opts.host is specified.
   # opts.user <int> optional user name for ssh
   # opts.port <int> optional port number for ssh
-  # opts.log <bool> enable logging (experimental)
+  # opts.log <bool> enable logging
+  # opts.passwordAgent <PasswordAgent> enables sharing if multiple shells can be prompted for same sudo password
   # opts.args <array of string | string> are additional shell arguments for local and remote shells
   #   note: opt.args are for the shell, not for the commands that the shell might run later
   constructor: (opts) ->
@@ -82,6 +84,7 @@ class Shell
       opts = {host: opts}
     opts = {} unless opts
     @log = opts and opts.log? and opts.log
+    @passwordAgent = opts.passwordAgent or password.agent()
     pushCustomArgs = ->
       if opts.args
         switch typeof opts.args
@@ -160,13 +163,13 @@ class Shell
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     # -t: enable tty for sudo password prompt via ssh
     # -t -t: because our local stdin is also not tty
-    passwordPrompt = util.uid(6) + ":Password:"
-    args = @args.concat ['-t', '-t', 'sudo', '-p', passwordPrompt] 
+    pwa = password.agent @passwordAgent
+    args = @args.concat ['-t', '-t', 'sudo', '-p', pwa.prompt] 
     args = args.concat [cmd.toString()]
     child = cpspawn
     spawn @shell, args, {
         name: @name
-        passwordPrompt
+        passwordAgent: pwa
         log: @log
       }, _cb
     this

@@ -1,4 +1,5 @@
 stdio = process.binding("stdio")
+util = require './util'
 
 readSilentLine = (cb = ->) ->
   unless cb
@@ -57,7 +58,41 @@ askPasswordTwice = (prompt, prompt2, cb) ->
       else
         cb null, password
 
+# Use a parent agent if the same password is used in different
+# places and it is not predictable who will ask first.
+class PasswordAgent
+  constructor: (@parent = null) ->
+    @attempts = 0
+    @cache = null
+    @maxAttempts = 5
+    @prompt = util.uid(6) + ":Password:"
+    
+  getCachedPassword: ->
+    return @cache if @cache
+    return @parent.getCachedPassword() if @parent
+    return null
+    
+  resetAttempts: ->
+    @attempts = null
+  setPassword: (pw) ->
+    @cache = pw
+    @parent.setPassword pw if @parent
+  getPassword: (cb) ->
+    @attempts++
+    pw = @getCachedPassword()
+    if @attempts == 1 and pw
+      console.log "reusing cached password"
+      cb(null, pw)
+    else if @attempts > @maxAttempts
+      cb "giving up on password after #{@maxAttempts} attempts"
+    else
+      _cb = (err, pw) =>
+        @setPassword pw unless err
+        cb err, pw
+      readSilentLine _cb
+
 exports.readSilentLine = readSilentLine
 exports.silentPrompt = silentPrompt
 exports.askPassword = askPassword
 exports.askPasswordTwice = askPasswordTwice
+exports.agent = (parent) -> new PasswordAgent(parent)
