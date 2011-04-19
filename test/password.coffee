@@ -1,7 +1,7 @@
 pw = require '../lib/password'
 
 pw.askPasswordTwice (err, password) ->
-  if err == "password-mismatch"
+  if err == "mismatch"
     console.log "password not accepted"
   else if err == 'SIGINT'
     process.kill process.pid

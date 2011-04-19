@@ -17,6 +17,7 @@ local.run 'bad-command', (ec) -> if ec then console.log "#{this.name} failed wit
 
 local.spawn 'ls', ['.']
 
+# $SHELL is not affected by what shell we are actually running
 reportShell = (sh) -> sh.run 'echo $SHELL'
 reportShell ploy.shell(sh: '/bin/bash')
 

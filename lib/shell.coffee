@@ -1,6 +1,6 @@
+password = require './password'
 cpspawn = require('child_process').spawn
-util = require 'util'
-
+util = require './util'
 
 # TODO: for sudo: create a password cache with timeout
 #   - Ubunto 10.04 remembers sudo over ssh
@@ -8,12 +8,10 @@ util = require 'util'
 #   Allow cache to be preloaded, for example by running password
 #   early in script, or by using a master password for encrypted host
 #   passwords.
-# TODO: generate random password prompt strings such that
-#   dumping source of this script doesn't trigger password prompter
 spawn = (cmd, args, opts, cb) ->
   args = [] unless args
   opts = {} unless opts
-  name = if opts.name? then opts.name + ": " else  ""
+  name = opts.name ? ""
   if typeof args == 'function'
       cb = args
       args = []
@@ -21,19 +19,25 @@ spawn = (cmd, args, opts, cb) ->
       cb = opts
       opts = {}
   if opts.log
-    console.log "#{name}#{cmd} #{args.join(' ')}"
+    console.log "#{name} : #{cmd} #{args.join(' ')}"
   child = cpspawn cmd, args
   child.stdout.on 'data', (data) ->
-    if /(^:w6kffb47:Password:w6kffb47:$)|(\n:w6kffb47:Password:w6kffb47:$)/.test data.asciiSlice(0,data.length)
-      console.log "#{name} prompts for password" if opts.log
-      require('./password').askPassword (err, pw) ->
-        if err == 'SIGINT'
-          process.kill child.pid
-          cb 'user killed shell during password query'
-        else if err
-          cb err
-        else
-          child.stdin.write pw + "\n"
+    if opts.passwordPrompt
+      ascii = data.asciiSlice(0,data.length)
+      process.stdout.flush()
+      if ascii.indexOf(opts.passwordPrompt) >= 0
+        process.stdout.write ("#{name} prompts for password\n" + data.toString().replace(opts.passwordPrompt, "Password:"))
+        password.readSilentLine (err, pw) ->
+          if err
+            process.kill child.pid
+            process.kill process.pid if err == 'SIGINT'
+          else
+            if child.stdin.writable
+              child.stdin.write pw + "\n"
+            else
+              cb 'could not write password'
+      else
+        process.stdout.write data
     else
       process.stdout.write data
   child.stderr.on 'data', (data) ->
@@ -43,6 +47,8 @@ spawn = (cmd, args, opts, cb) ->
     else if /tcgetattr: Inappropriate ioctl for device/.test ascii
       console.log "expected error from ssh -t -t operation:" if opts.log
       console.log "  " + data.toString() if opts.log
+    else
+      console.log data.toString()
   child.on 'exit', cb if cb
 
 class Shell
@@ -146,21 +152,23 @@ class Shell
     spawn cmd, args, {name: @name, log: @log}, _cb
     this
 
-  # TODO: this is far from complete, must respond to password requests,
-  #       or set password from elsewhere
   sudo: (cmd, cb) ->
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
-    # -t: enable tty for sudo password query
-    # -t -t: because our local stdin is not tty
-    args = @args.concat ['-t', '-t', 'sudo', '-p', ':w6kffb47:Password:w6kffb47:'] 
+    # -t: enable tty for sudo password prompt via ssh
+    # -t -t: because our local stdin is also not tty
+    passwordPrompt = util.uid(6) + ":Password:"
+    args = @args.concat ['-t', '-t', 'sudo', '-p', passwordPrompt] 
     args = args.concat [cmd.toString()]
     child = cpspawn
-    spawn @shell, args, {name: @name, askpass: true, log: @log}, _cb
+    spawn @shell, args, {
+        name: @name
+        passwordPrompt
+        log: @log
+      }, _cb
     this
-
 
 exports.shell = (opts) -> new Shell opts

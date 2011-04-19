@@ -2,12 +2,9 @@
 
 host = require('../ploy').shell(host:"example.com", log:true)
 
-
-host.run 'ls'
+host.run 'ls', ->
+  host.log = false
+  host.sudo 'ls'
 
 #host.run 'sudo -p Password: ls'
 
-host.sudo 'ls', ->
-  @log = false
-  console.log "sudo ls once more without logging:"
-  @sudo 'ls'
