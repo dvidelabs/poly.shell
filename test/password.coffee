@@ -14,17 +14,18 @@ pw.askPasswordTwice (err, password) ->
     pw.askPassword("Next password:", (err, password2) -> console.log "last password was '#{password2}'" unless err)
 
 pwa = pw.agent()
-pwa2 = pw.agent(pwa)
+pwa2 = pw.agent(pwa.cache)
 
 pwa.setPassword('hello')
-assert.equal pwa.getCachedPassword(), 'hello'
+assert.equal pwa.cache.get(), 'hello'
+assert.equal pwa2.cache.get(), 'hello'
 
 pwa.getPassword (err, password) ->
+  assert.equal err, null
   assert.equal(password, 'hello')
-  unless err
-    pwa.resetAttempts()
-  
-  assert.equal pwa2.getCachedPassword(), 'hello'
-
+  pwa.reset() unless err
+  assert.equal pwa.cache.get(), 'hello'  
+  assert.equal pwa2.cache.get(), 'hello'
   pwa2.getPassword (err, password) ->
     assert.equal(password, 'hello')
+    

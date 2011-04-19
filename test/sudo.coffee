@@ -12,6 +12,7 @@ host.run 'ls /var/log', ->
   host.log = true
   host.sudo 'tail /var/log/auth.log', ->
     host.sudo 'head /var/log/auth.log'
-
+# test concurrent password aquisition
+host.sudo 'ls ~'
 #host.run 'sudo -p Password: ls'
 

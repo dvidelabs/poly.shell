@@ -75,7 +75,7 @@ class Shell
   # opts.user <int> optional user name for ssh
   # opts.port <int> optional port number for ssh
   # opts.log <bool> enable logging
-  # opts.passwordAgent <PasswordAgent> enables sharing if multiple shells can be prompted for same sudo password
+  # opts.passwordCache <PasswordCache> enables sharing of passwords between multiple shells
   # opts.args <array of string | string> are additional shell arguments for local and remote shells
   #   note: opt.args are for the shell, not for the commands that the shell might run later
   constructor: (opts) ->
@@ -84,7 +84,7 @@ class Shell
       opts = {host: opts}
     opts = {} unless opts
     @log = opts and opts.log? and opts.log
-    @passwordAgent = opts.passwordAgent or password.agent()
+    @passwordCache = opts.passwordCache or password.cache()
     pushCustomArgs = ->
       if opts.args
         switch typeof opts.args
@@ -163,7 +163,7 @@ class Shell
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     # -t: enable tty for sudo password prompt via ssh
     # -t -t: because our local stdin is also not tty
-    pwa = password.agent @passwordAgent
+    pwa = password.agent @passwordCache
     args = @args.concat ['-t', '-t', 'sudo', '-p', pwa.prompt] 
     args = args.concat [cmd.toString()]
     child = cpspawn

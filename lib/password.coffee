@@ -1,5 +1,6 @@
 stdio = process.binding("stdio")
 util = require './util'
+EventEmitter = require('events').EventEmitter
 
 readSilentLine = (cb = ->) ->
   unless cb
@@ -58,41 +59,58 @@ askPasswordTwice = (prompt, prompt2, cb) ->
       else
         cb null, password
 
-# Use a parent agent if the same password is used in different
-# places and it is not predictable who will ask first.
+
+class PasswordCache extends EventEmitter
+  constructor: ->
+    @password = null
+    @pending = null
+  reset: ->
+    @password = null
+    @emit 'password', 'password-reset', null
+  get: -> return @password
+  set: (@password) ->
+    @emit 'password', null, @password
+  setPending: (@pending = true) ->
+  isPending: () -> @pending
+
+# An agent should only be used for one password session
+# or reset bewteen sessions (this does not clear password cache)
 class PasswordAgent
-  constructor: (@parent = null) ->
-    @attempts = 0
-    @cache = null
+  constructor: (@cache = new PasswordCache()) ->
     @maxAttempts = 5
-    @prompt = util.uid(6) + ":Password:"
-    
-  getCachedPassword: ->
-    return @cache if @cache
-    return @parent.getCachedPassword() if @parent
-    return null
-    
-  resetAttempts: ->
+    @reset()
+
+  reset: ->
     @attempts = 0
+    @prompt = util.uid(6) + ":Password:"
+  resetCache: ->
+    @cache.reset()
   setPassword: (pw) ->
-    @cache = pw
-    @parent.setPassword pw if @parent
+    @cache.set(pw)
+    console.log "setting password"
   getPassword: (cb) ->
     @attempts++
-    pw = @getCachedPassword()
+    pw = @cache.get()
     if @attempts == 1 and pw
-      console.log "reusing cached password"
+      console.log "using cached password"
       cb(null, pw)
     else if @attempts > @maxAttempts
       cb "giving up on password after #{@maxAttempts} attempts"
     else
-      _cb = (err, pw) =>
-        @setPassword pw unless err
-        cb err, pw
-      readSilentLine _cb
+      if @cache.isPending()
+        console.log "waiting for password entry in other process"
+        @cache.once('password', cb)
+      else
+        _cb = (err, pw) =>
+          @cache.setPending(false)
+          @setPassword pw unless err
+          cb err, pw
+        @cache.setPending(true)
+        readSilentLine _cb
 
 exports.readSilentLine = readSilentLine
 exports.silentPrompt = silentPrompt
 exports.askPassword = askPassword
 exports.askPasswordTwice = askPasswordTwice
-exports.agent = (parent) -> new PasswordAgent(parent)
+exports.cache = (cache) -> new PasswordCache()
+exports.agent = (cache) -> new PasswordAgent(cache)
