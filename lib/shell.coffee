@@ -119,6 +119,10 @@ class Shell
   # sh.run(cmd, [callback(errorCode)])
   # cmd is a string, or an array that will be joined with &&.
   #
+  # handles sudo in the trivial case where cmd is a string starting with sudo
+  # like sh.run 'sudo tail /var/log/auth.log', but not with arrays or sudo
+  # later in the syntax.
+  #
   # example
   #   sh = new Shell();
   #   sh.run('ls .', function(ec)
@@ -130,7 +134,7 @@ class Shell
   #       for now, everything goes to stdout concurrently
   
   run: (cmd, cb) ->
-    if /^\s*sudo\s/.test
+    if /^(\s*)sudo\s/.test cmd
       return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
@@ -157,10 +161,14 @@ class Shell
     spawn cmd, args, {name: @name, log: @log}, _cb
     this
 
+  # use instead of run for sudo commands
+  # run also redirects commands starting with sudo
+  # cmd as array is not support, unlike run
+  # (better create a script for sudoing multiple commands)
   sudo: (cmd, cb) ->
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
-      cmd = cmd.join(' && ')
+      throw new Error "sudo doesn't allow cmd as array"
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     # -t: enable tty for sudo password prompt via ssh
