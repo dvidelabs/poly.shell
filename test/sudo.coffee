@@ -8,11 +8,14 @@
 
 host = require('../ploy').shell(host:"example.com", log:true)
 
+# test sudo detector
+host.run 'sudo tail /var/log/auth.log | grep root'
+
 host.run 'ls /var/log', ->
   host.log = true
   host.sudo 'tail /var/log/auth.log', ->
     host.sudo 'head /var/log/auth.log'
 # test concurrent password aquisition
 host.sudo 'ls ~'
-#host.run 'sudo -p Password: ls'
+
 

@@ -130,6 +130,8 @@ class Shell
   #       for now, everything goes to stdout concurrently
   
   run: (cmd, cb) ->
+    if /^\s*sudo\s/.test
+      return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
