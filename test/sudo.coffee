@@ -10,7 +10,7 @@ host = require('../ploy').shell(host:"example.com", log:true)
 
 # test sudo detector
 host.run 'sudo tail /var/log/auth.log | grep root'
-
+return 
 host.run 'ls /var/log', ->
   host.log = true
   host.sudo 'tail /var/log/auth.log', ->
