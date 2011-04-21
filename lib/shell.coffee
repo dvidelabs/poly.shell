@@ -2,6 +2,10 @@ password = require './password'
 cpspawn = require('child_process').spawn
 util = require './util'
 
+# TODO:
+# Change current working directory of shell
+# if the configuration holds a path settings.
+
 spawn = (cmd, args, opts, cb) ->
   args = [] unless args
   opts = {} unless opts

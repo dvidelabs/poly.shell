@@ -1,79 +1,78 @@
-util = require 'util'
+util = require './util'
 _ = util._
-
-roles = require(./roles)
-sitesOfRoles = roles.sitesOfRoles
-
-# map a site name to a configuration hash
-siteConfig = roles.siteConfig
+shell = require './shell'
 
 class Job
-  constructor: (@name) ->
-    @actions = []
-  
-  # action : function, or array of functions
-  # actions are executed concurrently in the same job
+  constructor: (@name, @_sites) ->
+    @_actions = []
+
+  # Add actions for specific roles.
+  # A job need not run all actions in all roles.
+  # All actions are concurrent within the job.
+  #
+  # `roles` : role name or (nested) array of role names.setidentifies sites the actionsn will run on.
+  #   roles are resolved at runtime.
+  # `actions' : action function or (nested) array of action functions.
+  #   action(env, callback(err)) where env has:
+  #     `env.ctx` : execution global settings
+  #     `env.job` : name of job the action is executed from
+  #     `env.site` : site configuration incl. site.name where the action is running
+  #     `env.shell` : a shell object that can run shell commands on the site.
   # also for the same site, but every action is executed
   # at most once.
   addAction: (roles, actions)
-    @actions.push[roles, actions]
+    @_actions.push[roles, actions]
     return null
 
-  # list all sites that have associated actions in this job
-  sites: () ->
-    return sitesOfRoles(_.map(@actions, (x) -> x[0]))
-  
-  # return a map of sites to actions, possibly restricted by a filter role set
-  # note: the map may be outdated if roles are modified subsequently
+  # Returns a map of sites to actions, possibly restricted by a filter role set.
+  # Note: the map may be outdated if roles are modified subsequently.
   siteActions: (filter = null) ->
     map = {}
     map2 = {}
-    for a in @actions
+    for a in @_actions
       if actions.length
-        for site in sitesOfRoles(a[0], filter)
+        for site in @_sites.inRoles(a[0], filter)
           util.pushmap map, site, a[1]
     for site, actions in map
       a = _.flatten actions
       if a.length then map2[site] = a
     return map2
 
-_runSiteActions = (ctx, jobname, site, actions, cb) ->
-  cfg = siteConfig(site)
-  n = actions.length
-  return cb null, site unless n
-  for action in actions
-    e = null
-    _cb = (err) ->
-      if err
-        e ?= []
-        e.push err
-      cb e, site unless --n          
-    action { ctx, jobname, site, sh: shell(cfg) }, _cb
+  # Run all actions for a single site concurrently.
+  runSiteActions: (ctx, site, actions, cb) ->
+    cfg = siteConfig(site)
+    n = actions.length
+    return cb null, site unless n
+    for action in actions
+      e = null
+      _cb = (err) ->
+        if err
+          e ?= []
+          e.push err
+        cb e, site unless --n          
+      action { ctx, job: @name, site : cfg, shell: shell(cfg) }, _cb
 
-
-# Using a queue per site (`actionmap`) makes it easier
-# to extend the per site action sequence at both ends.
-# {cb} is called once per site with actions in the given job
-_chainJobActions = (actionmap, job, ctx, cb) ->
-  unless job
-    return if ctx.allowMissingJob
-    throw "job '#{job.name}' not found"
-  siteactions = job.siteActions(ctx.roles)
-  for site, actions in siteactions
-    _cb = (err) ->
-      next = undefined
-      unless err and ctx.breakOnError
-        next = actionmap[site].shift()
-      if next
-        next()
-      else
-        cb err, site
-    # be careful to modify array in place
-    util.pushmap actionmap, site, actions, ->
-      _runSiteActions ctx, job.name, site, actions, _cb
+  # Using a queue per site (`actionmap`) makes it easier
+  # to extend the per site action sequence at both ends.
+  # {cb} is called once per site with actions in the given job
+  chainJobActions: (actionmap, ctx, cb) ->
+    siteactions = @siteActions(ctx.roles)
+    for site, actions in siteactions
+      _cb = (err) ->
+        next = undefined
+        unless err and ctx.breakOnError
+          next = actionmap[site].shift()
+        if next
+          next()
+        else
+          cb err, site
+      # be careful to modify array in place
+      util.pushmap actionmap, site, actions, ->
+        @runSiteActions ctx, site, actions, _cb
 
 class Jobs
-  constructor: ->
+  constructor: (@_sites) ->
+    
     @jobs = {}
   
   # addJob may be called multiple times with same name
@@ -111,7 +110,7 @@ class Jobs
   addJob: (name, roles, actions) ->
     job = jobs[name]
     unless job
-      jobs[name] = job = new Job(name)
+      jobs[name] = job = new Job(name, @_sites)
     job.addAction roles, actions
     return job
   
@@ -141,7 +140,10 @@ class Jobs
       cb = (err, site)
         ++errors if err
         complete(errors or null) unless --pending  
-      _chainJobActions actionmap, @jobs[job], ctx, cb
+      unless job = @jobs[job]
+        return if ctx.allowMissingJob
+        throw "job '#{@name}' not found"
+      job.chainJobActions actionmap, ctx, cb
     for site, actions of actionmap
       ++total
       next = actions.shift()
@@ -169,8 +171,7 @@ class Jobs
     jobs = _.flatten(jobs)
     pending = 1
     for jobname in jobs
-      job = @jobs[jobname]
-      unless job
+      unless job = @jobs[jobname]
         throw "job '#{job.name}' not found" unless ctx.allowMissingJob
       else
         siteactions = job.siteActions(ctx.roles)
@@ -178,7 +179,7 @@ class Jobs
           cb = (err)
             ++errors if err
             complete(errors or null) unless --pending
-          _runSiteActions ctx, job.name, site, actions, cb
+          job.runSiteActions ctx, site, actions, cb
     complete(errors or null) unless --pending
 
   # Run all jobs sequentially across all sites.
@@ -201,20 +202,26 @@ class Jobs
     complete ?= ->
     ctx ?= {}
     jobs = _.flatten(jobs)
-    job = jobs.shift()
     errors = 0
-    schedule = ->
-      job = jobs.shift()
+    next = ->
+      jobname = jobs.shift()
       if errors and ctx.breakOnError
-        job = null
-      return complete(errors or null) unless job
+        jobname = null
+      if(jobname)
+        job = @jobs[jobname]
+        unless job
+          return next() if ctx.allowMissingJob
+          throw "job #{jobname} not found"
+      else
+        return complete(errors or null)
       siteactions = job.siteActions(ctx.roles)
       pending = 1
       for site, actions in siteactions
         ++pending
         cb = (err) ->
           ++errors if err
-          schedule() unless --pending
-        _runSiteActions ctx, job.name, site, actions, cb
-    schedule()
-    
+          next() unless --pending
+        job.runSiteActions ctx, site, actions, cb
+    next()
+
+exports.jobs = (sites) -> new Jobs(sites)
