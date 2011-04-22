@@ -1,0 +1,13 @@
+{
+  "name": "ploy",
+  "main": "lib/ploy.js",
+  "version": "0.0.1",
+  "author": "Mikkel Fahnøe Jørgensen <mikkel@dvide.com>",
+  "description": "distributed job control and deployment framework",
+  "engines": {
+    "node": ">=0.4.0"
+  },
+  "dependencies": {
+    "coffee-script": ">=1.0.1"
+  }
+}

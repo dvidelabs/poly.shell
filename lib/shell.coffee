@@ -20,7 +20,7 @@ spawn = (cmd, args, opts, cb) ->
     console.log "#{name} : #{cmd} #{args.join(' ')}"
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
-  child.on 'exit', cb if cb
+  child.on('exit', cb) if cb
   child.stdout.on 'data', (data) ->
     return process.stdout.write data unless pwa
     ascii = data.asciiSlice 0

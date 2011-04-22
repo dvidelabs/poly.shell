@@ -109,9 +109,11 @@ class PasswordAgent
         @cache.setPending(true)
         readSilentLine _cb
 
-exports.readSilentLine = readSilentLine
-exports.silentPrompt = silentPrompt
-exports.askPassword = askPassword
-exports.askPasswordTwice = askPasswordTwice
+helpers = {}
+helpers.readSilentLine = readSilentLine
+helpers.silentPrompt = silentPrompt
+helpers.askPassword = askPassword
+helpers.askPasswordTwice = askPasswordTwice
+exports.helpers = helpers
 exports.cache = (cache) -> new PasswordCache()
 exports.agent = (cache) -> new PasswordAgent(cache)

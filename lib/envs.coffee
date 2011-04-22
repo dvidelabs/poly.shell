@@ -1,7 +1,7 @@
 util = require './util'
 _ = util._
 
-class Environment
+class Environments
   constructor: () ->
     @_env = {}
     @_roles = {}
@@ -26,7 +26,7 @@ class Environment
   #
   # examples :
   #
-  #   sites = new Environment()
+  #   sites = new Environments()
   #   sites.add(['host1', 'host2'], ['db', 'admin'], { path: '~/example', comment: "hosts defined in .ssh/config" });
   #   sites.add('test-host', { path: "/tmp", user: "test", host: "0.0.0.0" });
   #   sites.add('app.example.com');
@@ -71,7 +71,7 @@ class Environment
   #
   # examples (using env to represent sites) :
   #
-  #  sites = new Environment()
+  #  sites = new Environments()
   #
   #  set backup path for all sites that are in `db` or `www` role:
   #
@@ -91,5 +91,4 @@ class Environment
     # underscore clones null to empty object
     if e then _.clone(e) else null
 
-exports.Environment = Environment
-exports.create = -> new Environment()
+exports.envs = -> new Environments()

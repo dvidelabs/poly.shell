@@ -1,4 +1,4 @@
-ploy = require('../../ploy')
+ploy = require '..'
 local = ploy.shell({name: "onsite", log:true})
 
 console.log local

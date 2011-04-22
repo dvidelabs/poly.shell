@@ -1,4 +1,4 @@
-shell = require('../../ploy').shell
+shell = require('..').shell
 
 # connection timeout eventualy
 eh = (ec) -> if ec then console.log "#{this.name} failed"

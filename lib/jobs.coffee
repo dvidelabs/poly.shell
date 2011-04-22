@@ -31,7 +31,7 @@ class Job
     map2 = {}
     for a in @_actions
       if actions.length
-        for site in @_sites.inRoles(a[0], filter)
+        for site in @_sites.list(a[0], filter)
           util.pushmap map, site, a[1]
     for site, actions in map
       a = _.flatten actions
@@ -40,7 +40,7 @@ class Job
 
   # Run all actions for a single site concurrently.
   runSiteActions: (ctx, site, actions, cb) ->
-    cfg = siteConfig(site)
+    cfg = @_sites.get(site)
     n = actions.length
     return cb null, site unless n
     for action in actions
@@ -203,12 +203,13 @@ class Jobs
     ctx ?= {}
     jobs = _.flatten(jobs)
     errors = 0
+    jobs = @jobs # bind name
     next = ->
       jobname = jobs.shift()
       if errors and ctx.breakOnError
         jobname = null
       if(jobname)
-        job = @jobs[jobname]
+        job = jobs[jobname]
         unless job
           return next() if ctx.allowMissingJob
           throw "job #{jobname} not found"

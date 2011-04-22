@@ -1,5 +1,5 @@
 assert = require 'assert'
-pw = require '../../lib/password'
+pw = require('..').password'
 
 pw.askPasswordTwice (err, password) ->
   if err == "mismatch"

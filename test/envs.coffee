@@ -1,27 +1,15 @@
-# run with expresso
-
 assert = require 'assert'
-_ = require('../../lib/util')._
+ploy = require('..')
+util = ploy.util
+_ = util._
 
 # here we assume a model where each deployment site is an environment
+createSites = ploy.envs
 
-createSites = require('../../lib/env').create
-
-eqlSet = (x, y) ->
-  return false if x.length != y.length
-  h = {}
-  for v in x
-    h[v] = true
-  for v in y
-    return false unless h[v]
-  return true
-
-assert.eqlSet = (x, y) -> assert.ok eqlSet x, y
-   
 module.exports = {
+  
   trival: ->
-    console.log "testing the test"
-    assert.eqlSet [1,2], [2,1]
+    assert.ok util.eqlSet [1,2], [2,1]
 
   add: ->
     sites = createSites()
@@ -63,23 +51,22 @@ module.exports = {
     sites.add ['x', 'y'], ['www', 'db', 'app'], { testpath: 'test' }
     sites.update 'x', 'beta'
     betaSites = sites.list 'beta'
-    assert.eqlSet betaSites, ['x']
+    assert.ok util.eqlSet betaSites, ['x']
     wwwSites = sites.list 'www'
-    assert.eqlSet wwwSites, ['x', 'y']
-    assert.eqlSet betaSites, sites.list('www', 'beta')
+    assert.ok util.eqlSet wwwSites, ['x', 'y']
+    assert.ok util.eqlSet betaSites, sites.list('www', 'beta')
 
     # `k` is a role, not a real site, so `beta` role doesn't change
     sites.update 'k', 'beta'
-    assert.eqlSet betaSites, sites.list('www', 'beta')
+    assert.ok util.eqlSet betaSites, sites.list('www', 'beta')
 
     # now `k` becomes a real site and updates `beta` role
     sites.add 'k', 'beta'
-    assert.eqlSet ['x', 'k'], sites.list('beta')
+    assert.ok util.eqlSet ['x', 'k'], sites.list('beta')
 
     set = sites.list 'www', 'beta'
-    console.log eqlSet(sites.list('beta'), set)
-    assert.ok not eqlSet(sites.list('beta'), set)
-    assert.eqlSet ['x'], set
+    assert.ok not util.eqlSet(sites.list('beta'), set)
+    assert.ok util.eqlSet ['x'], set
 
   update: ->
     sites = createSites()
