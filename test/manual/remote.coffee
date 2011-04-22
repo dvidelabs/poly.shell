@@ -1,5 +1,5 @@
 assert = require 'assert'
-shell = require('../ploy').shell
+shell = require('../../ploy').shell
 
 # note: setup example.com to some useful server in .ssh/config
 

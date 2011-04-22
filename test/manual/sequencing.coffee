@@ -1,6 +1,6 @@
 # note: configure example.com in .ssh/config
 
-shell = require('../ploy').shell
+shell = require('../../ploy').shell
 
 eh = (ec) -> if ec then console.log "#{this.name} failed"
 

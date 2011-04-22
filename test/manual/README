@@ -1,0 +1,15 @@
+These tests are manual and sort of adhoc to automate running
+various shell scenarios on local and remote hosts.
+
+Some cases include waiting for user password input.
+
+Generally, .ssh/config should be configured with example.com host
+and preferably tests should be run on different hosts.
+For example, Debian Squeeze and Ubuntu 10.04 behaves differently
+with respect to sudo password timeouts.
+
+tests are generally run like:
+
+  $ coffee test/manual/local.coffee
+
+etc.

@@ -1,9 +1,9 @@
 # run with expresso
 
 assert = require 'assert'
-_ = require('../lib/util')._
+_ = require('../../lib/util')._
 
-createSites = require('../lib/sites').createSites
+createSites = require('../../lib/sites').createSites
 
 eqlSet = (x, y) ->
   return false if x.length != y.length

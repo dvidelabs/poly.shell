@@ -5,7 +5,7 @@
 # the shell contains a password agent to alleviate this problem
 # hence we should enter the sudo password at most once in the following
 
-host = require('../ploy').shell(host:"example.com", log:true)
+host = require('../../ploy').shell(host:"example.com", log:true)
 
 host.run 'ls /var/log', ->
   host.log = true
