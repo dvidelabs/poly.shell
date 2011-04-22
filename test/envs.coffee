@@ -101,7 +101,6 @@ module.exports = {
     sites.add ['example.com', 'app.example.com'], 'deploy'
     sites.add 'foo.bar', 'test'
     assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
-    console.log sites.list(['test', 'deploy'])
     assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
 
 }

@@ -28,15 +28,12 @@ class Job
   # Note: the map may be outdated if roles are modified subsequently.
   siteActions: (filter = null) ->
     map = {}
-    map2 = {}
     for a in @_actions
-      if actions.length
-        for site in @sites.list(a[0], filter)
+      for site in @sites.list(a[0], filter)
           util.pushmap map, site, a[1]
     for site, actions in map
-      a = _.flatten actions
-      if a.length then map2[site] = a
-    return map2
+      map[site] = _.flatten actions
+    return map
 
   # Run all actions for a single site concurrently.
   runSiteActions: (ctx, site, actions, cb) ->
@@ -83,7 +80,7 @@ class Jobs
  
     @_jobs = {}
   
-  # addJob may be called multiple times with same name
+  # add may be called multiple times with same name
   # but different roles.
   #
   # If no role is given, the jobname is used as role.
@@ -117,12 +114,13 @@ class Jobs
   # of all sites affected by the job.
   # Job execution may specify a role filter which restricts
   # the job to a subset of all sites supported.
-  addJob: (name, roles, actions) ->
-    if roles typeof 'function'
+  add: (name, roles, actions) ->
+    if typeof roles is 'function'
+      actions = roles
       roles = name
-    job = jobs[name]
+    job = @_jobs[name]
     unless job
-      jobs[name] = job = new Job(name, @sites)
+      @_jobs[name] = job = new Job(name, @sites)
     job.addAction roles, actions
     return job
   
@@ -144,18 +142,18 @@ class Jobs
       ctx = null
     complete ?= ->
     ctx ?= {}
-    jobs = _.flatten(jobs)
+    jobs = _.flatten([jobs])
     actionmap = {}
     pending = 1
     errors = 0
     cb = (err) ->
       ++errors if err
       complete(errors or null) unless --pending  
-    for job in jobs
-      if job = @_jobs[job]
+    for jobname in jobs      
+      if job = @_jobs[jobname]        
         job.chainJobActions actionmap, ctx, cb
       else
-        throw "job '#{@name}' not found" unless ctx.allowMissingJob
+        throw new Error "job '#{jobname}' not found" unless ctx.allowMissingJob
     for site, actions of actionmap
       next = actions.shift()
       if next
@@ -182,7 +180,7 @@ class Jobs
       ctx = null
     complete ?= ->
     ctx ?= {}
-    jobs = _.flatten(jobs)
+    jobs = _.flatten([jobs])
     pending = 1
     errors = 0
     cb = (err) ->
@@ -216,15 +214,15 @@ class Jobs
       ctx = null
     complete ?= ->
     ctx ?= {}
-    jobs = _.flatten(jobs)
+    jobs = _.flatten([jobs])
     errors = 0
-    jobs = @_jobs # bind name
+    _jobs = @_jobs # bind name
     next = ->
       jobname = jobs.shift()
       if errors and ctx.breakOnError
         jobname = null
       if(jobname)
-        job = jobs[jobname]
+        job = _jobs[jobname]
         unless job
           return next() if ctx.allowMissingJob
           throw "job #{jobname} not found"

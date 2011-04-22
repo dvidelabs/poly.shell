@@ -27,7 +27,6 @@ module.exports = {
   
   sites: ->
     sites = loadSites()
-    console.log sites.list('test')
     assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
     assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
     assert.ok sites.get('foo.bar').log
@@ -36,10 +35,7 @@ module.exports = {
   jobs: ->
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
-    
-    console.log "bailing out of incomplete test case"
-    return
-    
+        
     context = { sitecount: {} }
     path = (env) -> env.path or "~/tmp"
     complete = (errors) ->
@@ -51,15 +47,6 @@ module.exports = {
         console.log "all jobs completed successfully"
       assert.isNull errors
   
-    # we could play around with action.shell.run "ls ~", done
-    # that requires a live host etc., so we don't actually run
-    # this job. 
-    jobs.add 'ls', 'not-here', (action, done) ->
-      run = action.shell.run
-      env = action.site
-      run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
-        run "ls -l ~/hello", done
-
     # add job named deploy in the deploy role
     jobs.add 'deploy', (action, done) ->
       # increment a counter for every site this action fires on
@@ -75,14 +62,32 @@ module.exports = {
     
     # add the job named checkruns in the roles 'test' and 'deploy'
     jobs.add 'checkruns', ['test', 'deploy'], (action, done) ->
-      ctx = action.ctx
+      checkruns action.ctx
       # only deploy
       assert.equal ctx.sitecount['example.com'], 1
       # test and deploy
       assert.equal ctx.sitecount['foo.bar'], 2
+      ctx.checkrunsDone = true
 
     # these are job names, not roles
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
+      
+    assert.ok context.checkrunsDone
+    
+  notnow: ->
+    jobs = createJobs(loadSites())
+    console.log "bailing out of notnow test"
+    return
+    # we could play around with action.shell.run "ls ~", done
+    # that requires a live host etc., so we don't actually run
+    # this job. 
+    jobs.add 'touch-hello', 'not-now', (action, done) ->
+      sh = action.shell
+      env = action.site
+      sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
+        sh.run "ls -l ~/hello", done
+
+    
 }
 
