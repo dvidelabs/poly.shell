@@ -2,6 +2,7 @@ stdio = process.binding("stdio")
 util = require './util'
 EventEmitter = require('events').EventEmitter
 
+# inspired by npm prompt.js
 readSilentLine = (cb = ->) ->
   unless cb
     cb = (err, line) ->
