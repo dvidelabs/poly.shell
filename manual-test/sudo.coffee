@@ -1,10 +1,3 @@
-# note: setup example.com to some useful server in .ssh/config
-
-# on some systems, sudo is rembembered across ssh sudo calls (Ubuntu 10.04)
-# on others (Debian Squeeze), password must be reentered for new connections
-# the shell contains a password agent to alleviate this problem
-# hence we should enter the sudo password at most once in the following
-
 host = require('..').shell(host:"example.com", log:true)
 
 host.run 'ls /var/log', ->

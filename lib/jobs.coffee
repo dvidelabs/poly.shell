@@ -1,5 +1,5 @@
+_ = require 'underscore'
 util = require './util'
-_ = util._
 shell = require './shell'
 
 class Job

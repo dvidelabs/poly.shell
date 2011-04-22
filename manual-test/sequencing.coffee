@@ -1,5 +1,3 @@
-# note: configure example.com in .ssh/config
-
 shell = require('..').shell
 
 eh = (ec) -> if ec then console.log "#{this.name} failed"

@@ -1,5 +1,3 @@
-exports._ = require '../vendor/underscore-min-1.1.6.js'
-
 # min .. max integer range, both incl.
 exports.randomIntRangeIncl = (min, max) ->
   Math.floor(Math.random() * (max - min + 1)) + min

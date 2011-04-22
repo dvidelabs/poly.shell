@@ -1,5 +1,5 @@
-password = require './password'
 cpspawn = require('child_process').spawn
+password = require './password'
 util = require './util'
 
 # TODO:

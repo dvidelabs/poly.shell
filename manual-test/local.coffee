@@ -1,5 +1,5 @@
-ploy = require '..'
-local = ploy.shell({name: "onsite", log:true})
+shell = require('..').shell
+local = shell({name: "onsite", log:true})
 
 console.log local
 console.log local.name
@@ -19,6 +19,5 @@ local.spawn 'ls', ['.']
 
 # $SHELL is not affected by what shell we are actually running
 reportShell = (sh) -> sh.run 'echo $SHELL'
-reportShell ploy.shell(sh: '/bin/bash')
-
-ploy.shell().run "echo $HOME", -> @run "echo I am `echo $USER`"
+reportShell shell(sh: '/bin/bash')
+shell().run "echo $HOME", -> @run "echo I am `echo $USER`"

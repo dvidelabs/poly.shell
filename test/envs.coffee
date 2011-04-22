@@ -1,10 +1,8 @@
 assert = require 'assert'
-ploy = require('..')
-util = ploy.util
-_ = util._
+util = require('..').util
 
 # here we assume a model where each deployment site is an environment
-createSites = ploy.envs
+createSites = require('..').envs
 
 console.log "=> envs test"
 

@@ -3,12 +3,13 @@ various shell scenarios on local and remote hosts.
 
 Some cases include waiting for user password input.
 
-Generally, .ssh/config should be configured with example.com host
-and preferably tests should be run on different hosts.
+Setup example.com to some useful server in .ssh/config.
+
+Try using different hosts for example.com:
 For example, Debian Squeeze and Ubuntu 10.04 behaves differently
 with respect to sudo password timeouts.
 
-tests are generally run within this folder like:
+Tests are generally run within this folder like:
 
   coffee local.coffee
   coffee remote.coffee

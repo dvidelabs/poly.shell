@@ -1,9 +1,6 @@
 assert = require 'assert'
 shell = require('..').shell
 
-# note: setup example.com to some useful server in .ssh/config
-
-
 host = shell("example.com")
 console.log "testing password prompt, just type anything"
 host.promptPassword ->

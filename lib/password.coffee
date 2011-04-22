@@ -1,6 +1,6 @@
-stdio = process.binding("stdio")
-util = require './util'
+stdio = process.binding('stdio')
 EventEmitter = require('events').EventEmitter
+util = require './util'
 
 # inspired by npm prompt.js
 readSilentLine = (cb = ->) ->
