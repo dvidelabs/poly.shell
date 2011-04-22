@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "coffee-script": ">=1.0.1"
+  },
+  "devDependencies": {
+    "expresso" : ">=0.7.5"
   }
 }

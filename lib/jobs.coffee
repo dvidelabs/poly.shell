@@ -3,7 +3,7 @@ _ = util._
 shell = require './shell'
 
 class Job
-  constructor: (@name, @_sites) ->
+  constructor: (@name, @sites) ->
     @_actions = []
 
   # Add actions for specific roles.
@@ -20,8 +20,8 @@ class Job
   #     `env.shell` : a shell object that can run shell commands on the site.
   # also for the same site, but every action is executed
   # at most once.
-  addAction: (roles, actions)
-    @_actions.push[roles, actions]
+  addAction: (roles, actions) ->
+    @_actions.push [roles, actions]
     return null
 
   # Returns a map of sites to actions, possibly restricted by a filter role set.
@@ -31,7 +31,7 @@ class Job
     map2 = {}
     for a in @_actions
       if actions.length
-        for site in @_sites.list(a[0], filter)
+        for site in @sites.list(a[0], filter)
           util.pushmap map, site, a[1]
     for site, actions in map
       a = _.flatten actions
@@ -40,7 +40,7 @@ class Job
 
   # Run all actions for a single site concurrently.
   runSiteActions: (ctx, site, actions, cb) ->
-    cfg = @_sites.get(site)
+    cfg = @sites.get(site)
     n = actions.length
     return cb null, site unless n
     for action in actions
@@ -70,13 +70,23 @@ class Job
       util.pushmap actionmap, site, actions, ->
         @runSiteActions ctx, site, actions, _cb
 
+# Jobs require a sites collection to manage the configuration
+# of sites that jobs can run on.
+# Sites can be defined using the Environments class
+# where each environment name represents a site.
+# A site env is used to initialize Shell objects such
+# that local and remote hosts can be accessed.
+#
 class Jobs
-  constructor: (@_sites) ->
-    
-    @jobs = {}
+  
+  constructor: (@sites) ->
+ 
+    @_jobs = {}
   
   # addJob may be called multiple times with same name
   # but different roles.
+  #
+  # If no role is given, the jobname is used as role.
   #
   # A roles is a role name or an array of role names.
   # A role name represents a set of sites.
@@ -108,9 +118,11 @@ class Jobs
   # Job execution may specify a role filter which restricts
   # the job to a subset of all sites supported.
   addJob: (name, roles, actions) ->
+    if roles typeof 'function'
+      roles = name
     job = jobs[name]
     unless job
-      jobs[name] = job = new Job(name, @_sites)
+      jobs[name] = job = new Job(name, @sites)
     job.addAction roles, actions
     return job
   
@@ -136,21 +148,23 @@ class Jobs
     actionmap = {}
     pending = 1
     errors = 0
+    cb = (err) ->
+      ++errors if err
+      complete(errors or null) unless --pending  
     for job in jobs
-      cb = (err, site)
-        ++errors if err
-        complete(errors or null) unless --pending  
-      unless job = @jobs[job]
-        return if ctx.allowMissingJob
-        throw "job '#{@name}' not found"
-      job.chainJobActions actionmap, ctx, cb
+      if job = @_jobs[job]
+        job.chainJobActions actionmap, ctx, cb
+      else
+        throw "job '#{@name}' not found" unless ctx.allowMissingJob
     for site, actions of actionmap
-      ++total
       next = actions.shift()
       if next
         ++pending
         next()
     complete(errors or null) unless --pending
+
+  # synonym for default run mode
+  run: (jobs, ctx, complete) -> @runSiteSequential(jobs, ctx, complete)
 
   # Run all actions of all jobs concurrently.
   # `jobs` : job name or (nested) array of job names.
@@ -170,15 +184,16 @@ class Jobs
     ctx ?= {}
     jobs = _.flatten(jobs)
     pending = 1
+    errors = 0
+    cb = (err) ->
+      ++errors if err
+      complete(errors or null) unless --pending
     for jobname in jobs
-      unless job = @jobs[jobname]
+      unless job = @_jobs[jobname]
         throw "job '#{job.name}' not found" unless ctx.allowMissingJob
       else
         siteactions = job.siteActions(ctx.roles)
         for site, actions in siteactions
-          cb = (err)
-            ++errors if err
-            complete(errors or null) unless --pending
           job.runSiteActions ctx, site, actions, cb
     complete(errors or null) unless --pending
 
@@ -203,7 +218,7 @@ class Jobs
     ctx ?= {}
     jobs = _.flatten(jobs)
     errors = 0
-    jobs = @jobs # bind name
+    jobs = @_jobs # bind name
     next = ->
       jobname = jobs.shift()
       if errors and ctx.breakOnError

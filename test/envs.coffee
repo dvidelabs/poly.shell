@@ -6,6 +6,8 @@ _ = util._
 # here we assume a model where each deployment site is an environment
 createSites = ploy.envs
 
+console.log "=> envs test"
+
 module.exports = {
   
   trival: ->
@@ -31,7 +33,7 @@ module.exports = {
 
   get: ->
     sites = createSites()
-    sites.add ['www1', 'www2'], { live: true}
+    sites.add ['www1', 'www2'], ['website'], { live: true}
     assert.ok sites.get('www1').live
     assert.ok sites.get('www2').live
 
@@ -45,6 +47,14 @@ module.exports = {
     assert.ok not sites.get('www1').live
     assert.ok not sites.get('www2').live
     assert.isNull sites.get('www3')
+    
+    # roles cannot be looked up directly since they have no env
+    assert.isNull sites.get('website')
+    assert.isNotNull sites.get(sites.list('website').shift())
+    
+    # but we can add an env with the same name as a role
+    sites.add 'website'
+    assert.isNotNull sites.get('website')
 
   list: ->
     sites = createSites()
@@ -87,5 +97,13 @@ module.exports = {
     assert.eql {
       name: 'x', msg: 'world', testpath: 'test',
       module: { c: 3 }}, sites.get('x')
+
+  listroles: ->
+    sites = createSites()
+    sites.add ['example.com', 'app.example.com'], 'deploy'
+    sites.add 'foo.bar', 'test'
+    assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
+    console.log sites.list(['test', 'deploy'])
+    assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
 
 }
