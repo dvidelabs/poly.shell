@@ -1,6 +1,6 @@
 _ = require 'underscore'
 util = require './util'
-shell = require './shell'
+shell = require('./shell').shell
 
 class Job
   constructor: (@name, @sites) ->
@@ -31,7 +31,7 @@ class Job
     for a in @_actions
       for site in @sites.list(a[0], filter)
           util.pushmap map, site, a[1]
-    for site, actions in map
+    for site, actions of map
       map[site] = _.flatten actions
     return map
 
@@ -40,14 +40,20 @@ class Job
     cfg = @sites.get(site)
     n = actions.length
     return cb null, site unless n
+    i = 0
     for action in actions
+      ++i
       e = null
       _cb = (err) ->
         if err
           e ?= []
           e.push err
-        cb e, site unless --n          
-      action { ctx, job: @name, site : cfg, shell: shell(cfg) }, _cb
+        cb e, site unless --n
+        
+      if ctx.log
+        console.log  "job '#{@name} runs action # #{i} at site: '#{site}'"
+
+      action { ctx, action: i, job: @name, site : cfg, shell: shell(cfg) }, _cb
 
   # Using a queue per site (`actionmap`) makes it easier
   # to extend the per site action sequence at both ends.
@@ -191,7 +197,7 @@ class Jobs
         throw "job '#{job.name}' not found" unless ctx.allowMissingJob
       else
         siteactions = job.siteActions(ctx.roles)
-        for site, actions in siteactions
+        for site, actions of siteactions
           job.runSiteActions ctx, site, actions, cb
     complete(errors or null) unless --pending
 
@@ -230,7 +236,7 @@ class Jobs
         return complete(errors or null)
       siteactions = job.siteActions(ctx.roles)
       pending = 1
-      for site, actions in siteactions
+      for site, actions of siteactions
         ++pending
         cb = (err) ->
           ++errors if err

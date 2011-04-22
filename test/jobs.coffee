@@ -36,7 +36,7 @@ module.exports = {
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
         
-    context = { sitecount: {} }
+    context = { sitecount: {}, log: true }
     path = (env) -> env.path or "~/tmp"
     complete = (errors) ->
       # node.js convention is to return null when there are no
@@ -46,9 +46,13 @@ module.exports = {
       else
         console.log "all jobs completed successfully"
       assert.isNull errors
+      console.log "context: "
+      console.log context
+      assert.ok context.checkrunsDone
   
     # add job named deploy in the deploy role
     jobs.add 'deploy', (action, done) ->
+      
       # increment a counter for every site this action fires on
       util.addmap action.ctx.sitecount, action.site.name
       # important to ensure progress
@@ -56,13 +60,15 @@ module.exports = {
     
     # add job named countertest to the test role.
     jobs.add 'countertest', ['test'], (action, done) ->
+      console.log action.job
       assert.ok action.site.log
       util.addmap action.ctx.sitecount, action.site.name
       done()
     
     # add the job named checkruns in the roles 'test' and 'deploy'
     jobs.add 'checkruns', ['test', 'deploy'], (action, done) ->
-      checkruns action.ctx
+      console.log action.job
+      ctx = action.ctx
       # only deploy
       assert.equal ctx.sitecount['example.com'], 1
       # test and deploy
@@ -72,13 +78,10 @@ module.exports = {
     # these are job names, not roles
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
-      
-    assert.ok context.checkrunsDone
-    
+          
   notnow: ->
     jobs = createJobs(loadSites())
-    console.log "bailing out of notnow test"
-    return
+
     # we could play around with action.shell.run "ls ~", done
     # that requires a live host etc., so we don't actually run
     # this job. 
