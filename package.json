@@ -1,6 +1,6 @@
 {
   "name": "ploy",
-  "main": "lib/ploy.js",
+  "main": "lib/index.js",
   "version": "0.0.1",
   "author": "Mikkel Fahnøe Jørgensen <mikkel@dvide.com>",
   "description": "distributed job control and deployment framework",
