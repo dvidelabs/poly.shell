@@ -12,12 +12,12 @@ exports.randomIntRange = (min, max) ->
 exports.randomIntIncl = (max) ->
   Math.floor(Math.random() * (max + 1))
 
-# 0 .. max integer range, both max excl.
+# 0 .. max integer range, max excl.
 exports.randomInt = (max) ->
   Math.floor(Math.random() * max)
   
-# fixed length random string of given alphabet
-# default length 10 from the A-Za-z0-9 alphabet
+# Creates a fixed length random string from a given alphabet.
+# Default length is 10 with the alphabet A-Za-z0-9.
 exports.uid = (len = 10, alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789') ->
   uid = ''
   n = alphabet.length
@@ -25,12 +25,18 @@ exports.uid = (len = 10, alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq
     uid += alphabet[Math.floor(Math.random() * n)]
   uid
 
-exports.pushmap = (m, x, y) -> a = m[x]; if a then a.push y else m[x] = [y]
+# Takes a map (object) and creates an array of one element at the given key
+# or pushes to an already existing array.
+exports.pushmap = (map, key, elem) -> a = map[key]; if a then a.push elem else map[key] = [elem]
 
-# also works for strings when setting first = ""
-exports.addmap = (m, x, y, first = 0) -> a = m[x] or first; m[x] = a + y
+# Takes a map (object) and increments a value at the given key
+# or creates a first value plus increment. Increment defaults to 1 and first
+# value defaults to zero. Function can also operate on strings if first is given
+# as a string type. For example as keyed message buffers.
+exports.addmap = (map, key, inc = 1, first = 0) -> val = map[x] or first; map[key] = val + inc
 
-# true if x and y has the same members, regardless of duplicates
+# Compare two arrays interpreted as sets.
+# True if x and y has the same members. Duplicates ignored.
 exports.eqSet = eqSet = (x, y) ->
   h = {}
   for v in x
@@ -39,8 +45,7 @@ exports.eqSet = eqSet = (x, y) ->
     return false unless h[v]
   return true
 
-# only true if x and y are proper sets, or have same number of duplicates
+# Like eqSet, but the number of duplicates must match.
 exports.eqlSet = (x, y) ->
     return false if x.length != y.length
     return eqSet(x, y)
-
