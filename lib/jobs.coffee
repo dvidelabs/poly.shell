@@ -49,15 +49,16 @@ class Job
       else
         name = @name + '(' + i + '/' + total + ')'
       e = null
+      issuer = "[#{ctx.batch}] #{site} :"
       _cb = (err) ->
         if err
           e ?= []
           e.push err
-          console.log  "#{site} : failed job: #{name} with error: #{err}" if ctx.log
+          console.log  "#{issuer} failed job: #{name} with error: #{err}" if ctx.log
         else
-          console.log  "#{site} : completed job: #{name}" if ctx.log
+          console.log  "#{issuer} completed job: #{name}" if ctx.log
         cb(e, site) unless --n
-      console.log  "#{site} : starting job: #{name}" if ctx.log
+      console.log  "#{issuer} starting job: #{name}" if ctx.log
       config.log = ctx.log
       action.call { ctx, index: i, total, job: name, site: config, shell: shell(config) }, _cb
     return null
@@ -81,12 +82,12 @@ class Job
         @runSiteActions ctx, site, actions, _cb
 
 
-_report = (type, jobs, roles, sites, actioncount) ->      
-  headerln = "scheduling #{type} jobs:\n"
+_report = (ctx, type, jobs, roles, sites, actioncount) ->
+  headerln = "[#{ctx.batch}] scheduling #{type} jobs:\n"
   jobsln = "    #{jobs.join(', ')}\n"
   restrictln = ""
   if sites.length
-    matchln = "  matching #{actioncount} actions (total) on sites:\n"
+    matchln = "  matching #{actioncount} actions (total) distributed over sites:\n"
     siteln = "    #{sites.join(', ')}"
   else
     matchln = "  schedule did not match any actions on any sites\n"
@@ -94,6 +95,19 @@ _report = (type, jobs, roles, sites, actioncount) ->
   if roles
     restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
   console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
+
+_prepareBatch = (jobs, ctx, complete) ->
+  if typeof ctx is 'function'
+    complete = ctx
+    ctx = null
+  complete ?= ->
+  ctx ?= {}
+  unless ctx.batch
+    ctx.batch = util.uid(6)
+    ctx.starttime = new Date()
+    console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}"
+  jobs = _.flatten([jobs])
+  return [jobs, ctx, complete]
 
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.
@@ -112,7 +126,7 @@ class Jobs
     if job = @_jobs[jobname]
       return job
     throw new Error "job #{jobname} not found" unless ctx.allowMissingJob
-    console.log "ignoring undefined job #{jobname}" if ctx.log
+    console.log "[#{ctc.batch}] ignoring undefined job #{jobname}" if ctx.log
     return null
     
   # add may be called multiple times with same name
@@ -172,12 +186,7 @@ class Jobs
   # (More detailed control can be had by having actions communicate on the ctx object,
   #  for example using events and/or context locks).
   runSiteSequential: (jobs, ctx, complete) ->
-    if typeof ctx is 'function'
-      complete = ctx
-      ctx = null
-    complete ?= ->
-    ctx ?= {}
-    jobs = _.flatten([jobs])
+    [jobs, ctx, complete] = _prepareBatch(jobs, ctx, complete)    
     actionmap = {}
     pending = 1
     errors = 0
@@ -193,7 +202,7 @@ class Jobs
       for site, actions of actionmap
         actioncount += actions.length
         sites.push site
-      _report('site sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
+      _report(ctx, 'site-sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     for site, actions of actionmap
       next = actions.shift()
       if next
@@ -215,12 +224,7 @@ class Jobs
   #   once all actions have completed.
   # See also runSiteSequential.
   runParallel: (jobs, ctx, complete) ->
-    if typeof ctx is 'function'
-      complete = ctx
-      ctx = null
-    complete ?= ->
-    ctx ?= {}
-    jobs = _.flatten([jobs])
+    [jobs, ctx, complete] = _prepareBatch(jobs, ctx, complete)    
     pending = 1
     errors = 0
     cb = (err) ->
@@ -238,7 +242,7 @@ class Jobs
             sites.push site
             actioncount += actions.length        
     if ctx.log
-      _report("parallel", jobs, ctx.roles, _.uniq(sites), actioncount)
+      _report(ctx, "parallel", jobs, ctx.roles, _.uniq(sites), actioncount)
     while q
       siteactions = q.shift()
       for site, actions of siteactions
@@ -259,34 +263,25 @@ class Jobs
   #    If ctx.breakOnError == true, complete may be called earlier.
   # See also runSiteSequential.
   runSequential: (jobs, ctx, complete) ->
-    if typeof ctx is 'function'
-      complete = ctx
-      ctx = null
-    complete ?= ->
-    ctx ?= {}
-    jobs = _.flatten([jobs])
+    [jobs, ctx, complete] = _prepareBatch(jobs, ctx, complete)
     errors = 0
-    _jobs = @_jobs # bind name
     q = []
     sites = []
     actioncount = 0
     for jobname in jobs
       if job = @_findJob ctx, jobname
         siteactions = job.siteActions(ctx.roles)
-        pending = 1
-        sites = []
-        actioncount = 0
         for site, actions of siteactions
           sites.push site
           actioncount += actions.length
-          q.push { site, actions }
+          q.push { job, site, actions }
     if ctx.log
-      _report('sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
+      _report(ctx, 'sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     next = (err) ->
       ++errors if err
       w = q.shift()
       complete errors or null if not w or (errors and ctx.breakOnError)
-      job.runSiteActions ctx, w.site, w.actions, next
+      w.job.runSiteActions ctx, w.site, w.actions, next
     next()
 
 exports.jobs = (sites) -> new Jobs(sites)
