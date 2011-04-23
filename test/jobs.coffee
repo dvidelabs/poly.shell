@@ -132,13 +132,20 @@ module.exports = {
     jobs.add 'display', 'app.example.com', (done) ->
       @shared.display = true
       msg = "my unique place in the world"
-      @report "action identifier is:" + @id
+      @report "action identifier: " + @id
+      @report "schedule identifier: " + @_sched.id
+      @report "schedule type: " + @_sched.type
+      assert.equal "sequential", @_sched.type
+      assert.equal 0, @id.indexOf(@_sched.id)
       @shared[@id] = { msg }
       assert.equal @_ctx.shared[@id].msg, msg
+      assert.equal @_sched.shared[@id].msg, msg
       assert.ok @shared.greeting, "greeting expected"
       done()
     complete = (err) ->
-      #assert.isNull err, "non errors should be null"
+      assert.isNull err, "non errors should be null"
+      assert.equal @index, 1 # first and only schedule
+      assert.equal @type, "sequential"
       @report "final shared state:\n#{JSON.stringify @shared}"
       assert.equal @shared.greeting, "hello, world!", "expected hello world message"
       assert.ok @shared.display, "display task should have been running"

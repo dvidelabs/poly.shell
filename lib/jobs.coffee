@@ -2,19 +2,36 @@ _ = require 'underscore'
 util = require './util'
 shell = require('./shell').shell
 
-_fmtMsg = (msg) ->
-  msg = msg.toString()
-  if msg.length > 20 or msg.indexOf('\n') >= 0
-    "\n" + util.indentMsg(msg, {indent: "    "})
-  else " " + msg
+_fmt = { indent: "    ", sep: ", " }
 
-_reportSchedule = (ctx, type, jobs, roles, sites, actioncount) ->
-  headerln = "[#{ctx.batch}-#{ctx.schedulecount}] : scheduling #{type} jobs:\n"
-  jobsln = "    #{jobs.join(', ')}\n"
+_fmtMsg = (msg, trailingnl) ->
+  msg = msg.toString()
+  msg = if msg.length > 20 or msg.indexOf('\n') >= 0
+    "\n" + util.indentMsg(msg, _fmt)
+  else " " + msg
+  if trailingnl
+    msg += '/n'
+  msg
+
+_fmtLst = (lst, trailingnl) ->
+  msg = util.formatList(lst, _fmt)
+  if trailingnl
+    msg += '/n'
+  msg
+
+_reportSchedule = (sched, sites, actioncount) ->
+  unless sched.opts.log
+    return
+  roles = sched.opts.roles
+  jobs = sched.jobs
+  type = sched.type
+  id = sched.id
+  headerln = "[#{id}] : scheduling #{type} jobs:\n"
+  jobsln = _fmtLst jobs, true
   restrictln = ""
   if sites.length
     matchln = "  matching #{actioncount} actions (total) distributed over sites:\n"
-    siteln = util.formatList sites, {indent: "    ", sep: ", "}
+    siteln = _fmtLst sites, true
   else
     matchln = "  schedule did not match any actions on any sites\n"
     siteln = ""
@@ -22,57 +39,54 @@ _reportSchedule = (ctx, type, jobs, roles, sites, actioncount) ->
     restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
   console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
 
-_prepareBatch = (type, jobs, ctx, complete) ->
-  if typeof ctx is 'function'
-    complete = ctx
-    ctx = null
+_prepareBatch = (type, jobs, opts_in, complete) ->
+  if typeof opts_in is 'function'
+    complete = opts_in
+    opts_in = null
   complete ?= ->
-  ctx ?= @_ctx or {}
+  opts_in ?= {}
+  ctx = @_ctx or {}
   unless ctx.batch
     ctx.batch = util.uid(6)
     ctx.starttime = new Date()
     ctx.actioncount = 0
     ctx.schedulecount = 0
     ctx.shared ?= {}
+    ctx.opts ?= {}
     console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}"
   ++ctx.schedulecount
+  # ctx.opts carries over options for the next schedule,
+  # but are never used directly
+  opts = _.clone _.extend(ctx.opts, opts_in)
   jobs = _.flatten([jobs])
   issuer = "[#{ctx.batch}-#{ctx.schedulecount}] : #{type}"
-  completeObj = {
+
+  sched = {
     _ctx: ctx
     report: (msg) ->
       if ctx.log
         console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
     shared: ctx.shared
     batch: ctx.batch
-    schedule: type
-  }
-  wrapComplete = (args...) ->
-    complete.apply completeObj, args
-    if ctx.log
+    type
+    opts
+    jobs
+    index: ctx.schedulecount
+    id: "#{ctx.batch}-#{ctx.schedulecount}"
+    }
+  _complete = (args...) ->
+    complete.apply sched, args
+    if opts.log
       errors = if args.length then args[0] else null
       emsg = if errors then "with #{errors} errors" else "successfully"
       console.log "#{issuer} job schedule completed #{emsg}"
-  return [jobs, ctx, wrapComplete]
+  sched._complete = _complete
+  return sched
 
 class Job
   constructor: (@name, @sites) ->
     @_actions = []
 
-  # Add actions for specific roles.
-  # A job need not run all actions in all roles.
-  # All actions are concurrent within the job.
-  #
-  # `roles` : role name or (nested) array of role names.setidentifies sites the actionsn will run on.
-  #   roles are resolved at runtime.
-  # `actions' : action function or (nested) array of action functions.
-  #   action(env, callback(err)) where env has:
-  #     `env.ctx` : execution global settings
-  #     `env.job` : name of job the action is executed from
-  #     `env.site` : site configuration incl. site.name where the action is running
-  #     `env.shell` : a shell object that can run shell commands on the site.
-  # also for the same site, but every action is executed
-  # at most once.
   addAction: (roles, actions) ->
     @_actions.push [roles, actions]
     return null
@@ -89,7 +103,7 @@ class Job
     return map
 
   # Run all actions for a single site concurrently.
-  runSiteActions: (ctx, site, actions, cb) ->
+  runSiteActions: (sched, site, actions, cb) ->
     config = @sites.get(site)
     n = actions.length
     return cb null, site unless n
@@ -102,14 +116,16 @@ class Job
       else
         name = @name + '(' + i + '/' + total + ')'
       e = null
+      ctx = sched._ctx
       ++ctx.actioncount
-      id = "#{ctx.batch}-#{ctx.schedulecount}-#{ctx.actioncount}"
+      id = "#{ctx.batch}-#{sched.index}-#{ctx.actioncount}"
       issuer = "[#{id}] #{site}"      
       actionObj = {
-        _ctx : ctx, batch: ctx.batch, shared: ctx.shared,
+        _ctx : ctx, _sched: sched,
+        shared: ctx.shared, batch: ctx.batch, id, 
         report : (msg) ->
           console.log "#{issuer} : reporting: #{_fmtMsg(msg)}"      
-        index: i, id, total, job: name, site: config, shell: shell(config) }
+        index: i, total, job: name, site: config, shell: shell(config) }
       _cb = (err) ->
         if err
           e ?= []
@@ -119,7 +135,7 @@ class Job
           console.log  "#{issuer} : completed job: #{name}" if ctx.log
         cb(e, actionObj) unless --n
       console.log  "#{issuer} : starting job: #{name}" if ctx.log
-      config.log = ctx.log
+      config.log = sched.opts.log
       config.name = issuer
       action.call actionObj, _cb
     return null
@@ -127,12 +143,12 @@ class Job
   # Using a queue per site (`actionmap`) makes it easier
   # to extend the per site action sequence at both ends.
   # {cb} is called once per site with actions in the given job
-  chainJobActions: (actionmap, ctx, cb) ->
-    siteactions = @siteActions(ctx.roles)
+  chainJobActions: (actionmap, sched, cb) ->
+    siteactions = @siteActions(sched.opts.roles)
     for site, actions in siteactions
       _cb = (err) ->
         next = undefined
-        unless err and ctx.breakOnError
+        unless err and sched.opts.breakOnError
           next = actionmap[site].shift()
         if next
           next()
@@ -140,8 +156,7 @@ class Job
           cb err, site
       # be careful to modify array in place
       util.pushmap actionmap, site, actions, ->
-        @runSiteActions ctx, site, actions, _cb
-
+        @runSiteActions sched, site, actions, _cb
 
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.
@@ -156,22 +171,40 @@ class Jobs
  
     @_jobs = {}
 
-  _findJob: (ctx, jobname) ->
+  _findJob: (sched, jobname) ->
     if job = @_jobs[jobname]
       return job
-    throw new Error "job #{jobname} not found" unless ctx.allowMissingJob
-    console.log "[#{ctc.batch}] ignoring undefined job #{jobname}" if ctx.log
+    throw new Error "job #{jobname} not found" unless sched.opts.allowMissingJob
+    console.log "[#{sched.batch}] ignoring undefined job #{jobname}" if sched.opts.log
     return null
-    
-  # add may be called multiple times with same name
-  # but different roles.
+  
+  
+  # Adds actions to a new or existing named job.
   #
   # If no role is given, the jobname is used as role.
   #
-  # A roles is a role name or an array of role names.
-  # A role name represents a set of sites.
-  # Roles may be updated so the set of sites a job
-  # operates on, is not static.
+  # Roles are used to restrict the job to specific
+  # sites that match these roles.
+  # When the job is subsequently run, the job
+  # may be further restricted to a subset of roles.
+  #
+  # Roles cannot be added, only restricted, when
+  # running. However, sites may be added by including
+  # them in roles after a job has been created.
+  #
+  # When a job is added multiple times, each action
+  # is associated with those roles given when added
+  # to the job. In effect a job becomes a cluster
+  # of actions that run together, but not necessarily
+  # in the same place, but always at the same time.
+  #
+  # Actions allways run concurrently, regardless of the
+  # schedule used to run multiple jobs.
+  #
+  # example roles (arrays are flattened before use):
+  #  "www"
+  #  ["test", "deploy"]
+  #  ["db", ["test", "deploy"]]
   #
   # A site is a name that maps to configurations settings
   # which typically include a host domain, a user,
@@ -185,18 +218,6 @@ class Jobs
   # actions, but the action may continue after that point.
   # It is, however, vital that the callback is called exactly
   # once.
-  # The options include configuration settings
-  # and a shell that can execute local or remote shell
-  # commands, depending on the location of the site.
-  # A shell can coordinate password caching across actions
-  # on same or multiple sites.
-  #
-  # A job is a set of concurrent actions associated with
-  # a number of sites derived from the given roles.
-  # Within a job, some actions may only execute on a subset
-  # of all sites affected by the job.
-  # Job execution may specify a role filter which restricts
-  # the job to a subset of all sites supported.
   add: (name, roles, actions) ->
     if typeof roles is 'function'
       actions = roles
@@ -206,120 +227,129 @@ class Jobs
       @_jobs[name] = job = new Job(name, @sites)
     job.addAction roles, actions
     return job
-      
-  # Run job or jobs in sequence per site, but in parallel over all sites.
-  # Actions within a single job always run concurrently.
+
+  # Run job or jobs in site-sequential schedule
+  # where two jobs do not overlap on a single site
+  # but may overlap on different sites.
+  # In effect each site pulls the next job when ready,
+  # and is normally what is desired.
+  #
+  # Multiple actions within a single job always run concurrently.
   #
   # `jobs` : job name or (nested) array of job names.
-  # `ctx.roles` : optional role filter to restrict number of affected sites.
+  # `opts.roles` : optional role filter to restrict number of affected sites.
   #    If `filter` is null or 'any', jobs will run on all sites
   #    they are defined for.
-  # `ctx.breakOnError = true` terminates action sequence on a site that fails.
-  # `ctx.allowMissingJob = true` : allow missing jobs without throwing an exception.
+  # `opts.breakOnError = true` terminates action sequence on a site that fails.
+  # `opts.allowMissingJob = true` : allow missing jobs without throwing an exception.
   # `complete` : called with null or error count once all sites have completed.
-  # (More detailed control can be had by having actions communicate on the ctx object,
-  #  for example using events and/or context locks).
-  runSiteSequential: (jobs, ctx, complete) ->
-    type = 'site-sequential'
-    [jobs, ctx, complete] = _prepareBatch(type, jobs, ctx, complete)    
+  #    complete is wrapped so it runs with a schedule object
+  #    as this pointer.
+  # (More detailed control can be had by having actions communicate
+  #  over the shared object provided in the action and schedule objects).
+  runSiteSequential: (jobs, opts, complete) ->
+    sched = _prepareBatch('site-sequential', jobs, opts, complete)    
     actionmap = {}
     pending = 1
     errors = 0
     cb = (err) ->
       ++errors if err
-      complete(errors or null) unless --pending  
+      sched._complete(errors or null) unless --pending  
     for jobname in jobs      
-      if job = @_findJob ctx, jobname
-        job.chainJobActions actionmap, ctx, cb
-    if ctx.log
+      if job = @_findJob sched, jobname
+        job.chainJobActions actionmap, sched, cb
+    if sched.opts.log
       sites = []
       actioncount = 0
       for site, actions of actionmap
         actioncount += actions.length
         sites.push site
-      _reportSchedule(ctx, type, jobs, ctx.roles, _.uniq(sites), actioncount)
+      _reportSchedule(sched, _.uniq(sites), actioncount)
     for site, actions of actionmap
       next = actions.shift()
       if next
         ++pending
         next()
-    complete(errors or null) unless --pending
+    sched._complete(errors or null) unless --pending
 
   # synonym for default run mode
-  run: (jobs, ctx, complete) -> @runSiteSequential(jobs, ctx, complete)
+  run: @runSiteSequential
 
-  # Run all actions of all jobs concurrently.
+  # Run all actions of all jobs in a parallel schedule.
   # `jobs` : job name or (nested) array of job names.
-  # `ctx.roles` : restrict number of affected sites
-  #   (unless missing or 'any').
-  # `ctx.breakOnError` has no effect since all
-  #   actions are started before we can detect errors.
-  # `ctx.allowMissingJob = true` : ignore missing jobs.
+  # `opts.roles` : restrict number of affected sites
+  #    (unless missing or 'any').
+  # `opts.breakOnError` has no effect since all
+  #    actions are started before we can detect errors.
+  # `opts.allowMissingJob = true` : ignore missing jobs.
+  #  missing options are inherited from containing schedules.
   # `complete` : called with null or error count
-  #   once all actions have completed.
+  #    once all actions have completed.
+  #    complete is wrapped so it runs with a schedule object
+  #    as this pointer.
   # See also runSiteSequential.
-  runParallel: (jobs, ctx, complete) ->
-    type = "parallel"
-    [jobs, ctx, complete] = _prepareBatch(type, jobs, ctx, complete)    
+  runParallel: (jobs, opts, complete) ->
+    sched = _prepareBatch('parallel', jobs, opts, complete)    
     pending = 1
     errors = 0
     cb = (err) ->
       ++errors if err
-      complete(errors or null) unless --pending
+      sched._complete(errors or null) unless --pending
     q = []
     sites = []
     actioncount = 0
     for jobname in jobs
-      if job = @_findJob ctx, jobname
-        siteactions = job.siteActions(ctx.roles)
+      if job = @_findJob sched, jobname
+        siteactions = job.siteActions(sched.opts.roles)
         q.push siteactions
-        if ctx.log
+        if sched.opts.log
           for site, actions of siteactions
             sites.push site
             actioncount += actions.length        
-    if ctx.log
-      _reportSchedule(ctx, type, jobs, ctx.roles, _.uniq(sites), actioncount)
+    _reportSchedule(sched, _.uniq(sites), actioncount)
     while q
       siteactions = q.shift()
       for site, actions of siteactions
-        job.runSiteActions ctx, site, actions, cb
-    complete(errors or null) unless --pending
+        job.runSiteActions sched, site, actions, cb
+    sched._complete(errors or null) unless --pending
 
-  # Run all jobs sequentially across all sites.
+  # Run all jobs in a sequential schedule across all sites.
   # Actions within a single job still run concurrently.
   #
   # `jobs` : job name or (nested) array of job names.
-  # `ctx.roles` : restrict number of affected sites
+  # `opts.roles` : restrict number of affected sites
   #   (unless missing or 'any').
-  # `ctx.breakOnError = true` will terminate subsequent jobs
+  # `opts.breakOnError = true` will terminate subsequent jobs
   #   on all sites if a single site fails.
-  # `ctx.allowMissingJob = true` : allow missing jobs without
+  # `opts.allowMissingJob = true` : allow missing jobs without
   #   throwing an exception.
+  #  missing options are inherited from containing schedules.
   # `complete` : called with error count once last job completes.
-  #    If ctx.breakOnError == true, complete may be called earlier.
+  #    If opts.breakOnError == true, complete may be called earlier.
+  #    complete is wrapped so it runs with a schedule object
+  #    as this pointer.
   # See also runSiteSequential.
-  runSequential: (jobs, ctx, complete) ->
-    type = 'sequential'
-    [jobs, ctx, complete] = _prepareBatch(type, jobs, ctx, complete)
+  runSequential: (jobs, opts, complete) ->
+    sched = _prepareBatch('sequential', jobs, opts, complete)
     errors = 0
     q = []
     sites = []
     actioncount = 0
     for jobname in jobs
-      if job = @_findJob ctx, jobname
-        siteactions = job.siteActions(ctx.roles)
+      if job = @_findJob sched, jobname
+        siteactions = job.siteActions(sched.opts.roles)
         for site, actions of siteactions
           sites.push site
           actioncount += actions.length
-          q.push [ job, ctx, site, actions ]
-    if ctx.log
-      _reportSchedule(ctx, type, jobs, ctx.roles, _.uniq(sites), actioncount)
+          q.push [ job, sched, site, actions ]
+    _reportSchedule(sched, _.uniq(sites), actioncount)
     next = (err) ->
       # the this pointer of next is not the job
       # because we injecting a context in the callbacks
       ++errors if err
       w = q.shift()
-      return complete errors or null if not w or (errors and ctx.breakOnError)
+      if not w or (errors and sched.opts.breakOnError)
+        return sched._complete errors or null
       w.push next
       job = w.shift()
       job.runSiteActions.apply job, w
