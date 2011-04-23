@@ -53,7 +53,7 @@ class Job
       if ctx.log
         console.log  "job '#{@name} runs action # #{i} at site: '#{site}'"
 
-      action { ctx, action: i, job: @name, site : cfg, shell: shell(cfg) }, _cb
+      action.call { ctx, action: i, job: @name, site : cfg, exit: _cb, shell: shell(cfg) }, _cb
 
   # Using a queue per site (`actionmap`) makes it easier
   # to extend the per site action sequence at both ends.

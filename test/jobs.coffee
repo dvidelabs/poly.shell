@@ -50,30 +50,29 @@ module.exports = {
       console.log context
       assert.ok context.checkrunsDone
   
-    # add job named deploy in the deploy role
-    jobs.add 'deploy', (action, done) ->
-      
+    # add a job named deploy in the deploy role
+    jobs.add 'deploy', (done) ->
       # increment a counter for every site this action fires on
-      util.addmap action.ctx.sitecount, action.site.name
+      util.addmap @ctx.sitecount, @site.name
       # important to ensure progress
       done()
     
-    # add job named countertest to the test role.
-    jobs.add 'countertest', ['test'], (action, done) ->
-      console.log action.job
-      assert.ok action.site.log
-      util.addmap action.ctx.sitecount, action.site.name
+    # add a job named countertest to the test role.
+    jobs.add 'countertest', ['test'], (done) ->
+      console.log @job
+      assert.ok @site.log
+      util.addmap @ctx.sitecount, @site.name
       done()
     
-    # add the job named checkruns in the roles 'test' and 'deploy'
-    jobs.add 'checkruns', ['test', 'deploy'], (action, done) ->
-      console.log action.job
-      ctx = action.ctx
+    # add a job named checkruns in the roles 'test' and 'deploy'
+    jobs.add 'checkruns', ['test', 'deploy'], (done) ->
+      console.log @job
       # only deploy
-      assert.equal ctx.sitecount['example.com'], 1
+      assert.equal @ctx.sitecount['example.com'], 1
       # test and deploy
-      assert.equal ctx.sitecount['foo.bar'], 2
-      ctx.checkrunsDone = true
+      assert.equal @ctx.sitecount['foo.bar'], 2
+      @ctx.checkrunsDone = true
+      done()
 
     # these are job names, not roles
     jobs.runParallel ['deploy', 'countertest'], context, ->
@@ -85,12 +84,13 @@ module.exports = {
     # we could play around with action.shell.run "ls ~", done
     # that requires a live host etc., so we don't actually run
     # this job. 
-    jobs.add 'touch-hello', 'not-now', (action, done) ->
+    # async jobs must request a callback using this.async() before the
+    # function return.
+    jobs.add 'touch-hello', 'not-now', (done) ->
       sh = action.shell
       env = action.site
       sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
         sh.run "ls -l ~/hello", done
 
-    
 }
 
