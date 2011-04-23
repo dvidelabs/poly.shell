@@ -80,6 +80,7 @@ module.exports = {
       done()
 
     # these are job names, not roles
+    context.roles = ['test', 'live']
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
 

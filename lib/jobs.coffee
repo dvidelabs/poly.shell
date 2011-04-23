@@ -136,7 +136,22 @@ class Jobs
       @_jobs[name] = job = new Job(name, @sites)
     job.addAction roles, actions
     return job
-  
+
+  _report = (type, jobs, roles, sites, actioncount) ->      
+    headerln = "scheduling #{type} jobs:\n"
+    jobsln = "    #{jobs.join(', ')}\n"
+    restrictln = ""
+    if sites.length
+      matchln = "  matching #{actioncount} actions (total) on sites:\n"
+      siteln = "    #{sites.join(', ')}"
+    else
+      matchln = "  schedule did not match any actions on any sites"
+      siteln = ""
+    if roles
+      restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
+    console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"      
+
+
   # Run job or jobs in sequence per site, but in parallel over all sites.
   # Actions within a single job always run concurrently.
   #
@@ -167,6 +182,13 @@ class Jobs
         job.chainJobActions actionmap, ctx, cb
       else
         throw new Error "job '#{jobname}' not found" unless ctx.allowMissingJob
+    if ctx.log
+      sites = []
+      actioncount = 0
+      for site, actions of actionmap
+        actioncount += actions.length
+        sites.push site
+      _report('site sequential', jobs, ctx.roles, sites, actioncount)
     for site, actions of actionmap
       next = actions.shift()
       if next
@@ -199,13 +221,27 @@ class Jobs
     cb = (err) ->
       ++errors if err
       complete(errors or null) unless --pending
+    q = []
+    sites = []
+    actioncount = 0
+    
     for jobname in jobs
       unless job = @_jobs[jobname]
         throw "job '#{job.name}' not found" unless ctx.allowMissingJob
       else
         siteactions = job.siteActions(ctx.roles)
-        for site, actions of siteactions
-          job.runSiteActions ctx, site, actions, cb
+        q.push siteactions
+        if ctx.log
+          for site, actions of siteactions
+            sites.push site
+            actioncount += actions.length        
+    if ctx.log
+      sites = _.uniq(sites)
+      _report("parallel", jobs, ctx.roles, sites, actioncount)
+    while q
+      siteactions = q.shift()
+      for site, actions of siteactions
+        job.runSiteActions ctx, site, actions, cb
     complete(errors or null) unless --pending
 
   # Run all jobs sequentially across all sites.
