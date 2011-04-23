@@ -29,9 +29,11 @@ exports.pushmap = (map, key, elem) -> a = map[key]; if a then a.push elem else m
 
 # Takes a map (object) and increments a value at the given key
 # or creates a first value plus increment. Increment defaults to 1 and first
-# value defaults to zero. Function can also operate on strings if first is given
-# as a string type. For example as keyed message buffers.
+# value defaults to zero. 
 exports.addmap = (map, key, inc = 1, first = 0) -> val = map[key] or first; map[key] = val + inc
+
+# Write text to a named buffer in a object, similar to pushmap and addmap.
+exports.writemap = (map, key, msg = 1, first = "") -> val = map[key] or first; map[key] = val + msg
 
 # Compare two arrays interpreted as sets.
 # True if x and y has the same members. Duplicates ignored.

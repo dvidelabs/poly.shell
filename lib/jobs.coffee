@@ -145,12 +145,11 @@ class Jobs
       matchln = "  matching #{actioncount} actions (total) on sites:\n"
       siteln = "    #{sites.join(', ')}"
     else
-      matchln = "  schedule did not match any actions on any sites"
+      matchln = "  schedule did not match any actions on any sites\n"
       siteln = ""
     if roles
       restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
-    console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"      
-
+    console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
 
   # Run job or jobs in sequence per site, but in parallel over all sites.
   # Actions within a single job always run concurrently.
@@ -266,25 +265,31 @@ class Jobs
     jobs = _.flatten([jobs])
     errors = 0
     _jobs = @_jobs # bind name
-    next = ->
-      jobname = jobs.shift()
-      if errors and ctx.breakOnError
-        jobname = null
-      if(jobname)
-        job = _jobs[jobname]
-        unless job
-          return next() if ctx.allowMissingJob
-          throw "job #{jobname} not found"
+    q = []
+    sites = []
+    actioncount = 0
+    for jobname in jobs
+      job = _jobs[jobname]
+      unless job
+        throw "job #{jobname} not found" unless ctx.allowMissingJob
+        console.log "ignoring undefined job #{jobname}" if ctx.log
       else
-        return complete(errors or null)
-      siteactions = job.siteActions(ctx.roles)
-      pending = 1
-      for site, actions of siteactions
-        ++pending
-        cb = (err) ->
-          ++errors if err
-          next() unless --pending
-        job.runSiteActions ctx, site, actions, cb
+        siteactions = job.siteActions(ctx.roles)
+        pending = 1
+        sites = []
+        actioncount = 0
+        for site, actions of siteactions
+          sites.push site
+          actioncount += actions.length
+          q.push { site, actions }
+    if ctx.log
+      sites = _.uniq(sites)
+      _report('sequential', jobs, ctx.roles, sites, actioncount)
+    next = (err) ->
+      ++errors if err
+      w = q.shift()
+      complete errors or null if not w or (errors and ctx.breakOnError)
+      job.runSiteActions ctx, w.site, w.actions, next
     next()
 
 exports.jobs = (sites) -> new Jobs(sites)

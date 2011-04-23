@@ -84,6 +84,30 @@ module.exports = {
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
 
+  sequential: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'hello', 'app.example.com', (done) ->
+      delay = ->
+        util.writemap @ctx, "greeting", "hello"
+        done()
+      setTimeout(delay, 100)
+    jobs.add 'world', 'example.com', (done) ->
+      util.writemap @ctx, "greeting", ", world!"
+      done()
+    jobs.add 'display', 'app.example.com', (done) ->
+      assert.ok @ctx.greeting, "greeting expected"
+      console.log @ctx.greeting
+      @ctx.display = true
+      done()
+    complete = (err) ->
+      assert.isNull err, "non errors should be null"
+      assert.equal @ctx.greeting, "hello, world!", "expected hello world message"
+      assert.ok @ctx.display, "display task should have been running"
+    jobs.runSequential ['hello', 'world', 'display'], { log: true, greeting: "" }, complete
+
+  forcedError: ->
+    assert.ok false, "we know errors don't propagate correctly to the end in the jobs test, fix this"
+
   notnow: ->
     return
     jobs = createJobs(loadSites())
