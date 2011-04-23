@@ -1,7 +1,6 @@
 assert = require('assert')
 createJobs = require('..').jobs
 util = require('..').util
-
 createSites = require('..').envs
 
 console.log "=> jobs test"
@@ -98,10 +97,6 @@ inactive = {
         env = action.site
         sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
           sh.run "ls -l ~/hello", done    
-}
-
-
-module.exports = {
 
   shell: ->
     jobs = createJobs(loadSites())
@@ -110,6 +105,9 @@ module.exports = {
       @shell.sudo "ls", (err) ->
         @report err if err
         exit err
+}
+
+module.exports = {
 
   sequential: ->
     jobs = createJobs(loadSites())
@@ -120,9 +118,11 @@ module.exports = {
       assert.equal 0, @id.indexOf(@batch + "-")
       @report "Testing the reporting\nfacitlity.\nThere can be multiple\nlines."
       # the id is suitable for tmp files unique for this action, across all sites.
-      @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log"    
-      @shell.sudo "ls", ->
-      delay = ->
+      @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log"
+      # we didn't give a callback to shell, so we just return with the job in the background
+      
+      # note: we used the coffee-script binding operator to keep the `this` pointer
+      delay = =>
         util.writemap @shared, "greeting", "hello"
         done()
       setTimeout(delay, 100)
@@ -132,12 +132,15 @@ module.exports = {
     jobs.add 'display', 'app.example.com', (done) ->
       @shared.display = true
       msg = "my unique place in the world"
+      console.log @shared
+      console.log @id
       @shared[@id] = { msg }
       assert.equal @_ctx.shared[@id].msg, msg
       assert.ok @shared.greeting, "greeting expected"
       done()
     complete = (err) ->
       assert.isNull err, "non errors should be null"
+      console.log @shared
       assert.equal @shared.greeting, "hello, world!", "expected hello world message"
       assert.ok @shared.display, "display task should have been running"
     jobs.runSequential ['hello', 'world', 'display'], { log: true, shared: { greeting: ""} }, complete

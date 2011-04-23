@@ -121,7 +121,8 @@ _prepareBatch = (jobs, ctx, complete) ->
     ctx.shared ?= {}
     console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}"
   jobs = _.flatten([jobs])
-  return [jobs, ctx, complete]
+  wrapcomplete = (args...) -> complete.apply ctx, args
+  return [jobs, ctx, wrapcomplete]
 
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.
@@ -288,14 +289,18 @@ class Jobs
         for site, actions of siteactions
           sites.push site
           actioncount += actions.length
-          q.push { job, site, actions }
+          q.push [ job, ctx, site, actions ]
     if ctx.log
       _reportSchedule(ctx, 'sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     next = (err) ->
+      # the this pointer of next is not the job
+      # because we injecting a context in the callbacks
       ++errors if err
       w = q.shift()
-      complete errors or null if not w or (errors and ctx.breakOnError)
-      w.job.runSiteActions ctx, w.site, w.actions, next
+      return complete errors or null if not w or (errors and ctx.breakOnError)
+      w.push next
+      job = w.shift()
+      job.runSiteActions.apply job, w
     next()
 
 exports.jobs = (sites) -> new Jobs(sites)
