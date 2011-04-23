@@ -57,7 +57,7 @@ class Job
           msg = "\n" + util.indentMsg(msg, {indent: "    "})
         console.log "#{issuer} : reporting: #{msg}"
       actionObj = {
-        ctx, shared: ctx.shared, report, index: i, id,
+        _ctx : ctx, batch: ctx.batch, shared: ctx.shared, report, index: i, id,
         total, job: name, site: config, shell: shell(config) }
       _cb = (err) ->
         if err
