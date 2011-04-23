@@ -49,18 +49,28 @@ class Job
       else
         name = @name + '(' + i + '/' + total + ')'
       e = null
-      issuer = "[#{ctx.batch}] #{site} :"
+      ++ctx.actioncount
+      id = "#{ctx.batch}-#{ctx.actioncount}"
+      issuer = "[#{id}] #{site}"
+      report = (msg) ->
+        if msg.length > 20 or msg.indexOf('\n') >= 0
+          msg = "\n" + util.indentMsg(msg, {indent: "    "})
+        console.log "#{issuer} : reporting: #{msg}"
+      actionObj = {
+        ctx, shared: ctx.shared, report, index: i, id,
+        total, job: name, site: config, shell: shell(config) }
       _cb = (err) ->
         if err
           e ?= []
           e.push err
-          console.log  "#{issuer} failed job: #{name} with error: #{err}" if ctx.log
+          console.log  "#{issuer} : failed job: #{name} with error: #{err}" if ctx.log
         else
-          console.log  "#{issuer} completed job: #{name}" if ctx.log
-        cb(e, site) unless --n
-      console.log  "#{issuer} starting job: #{name}" if ctx.log
+          console.log  "#{issuer} : completed job: #{name}" if ctx.log
+        cb(e, actionObj) unless --n
+      console.log  "#{issuer} : starting job: #{name}" if ctx.log
       config.log = ctx.log
-      action.call { ctx, index: i, total, job: name, site: config, shell: shell(config) }, _cb
+      config.name = issuer
+      action.call actionObj, _cb
     return null
 
   # Using a queue per site (`actionmap`) makes it easier
@@ -81,8 +91,7 @@ class Job
       util.pushmap actionmap, site, actions, ->
         @runSiteActions ctx, site, actions, _cb
 
-
-_report = (ctx, type, jobs, roles, sites, actioncount) ->
+_reportSchedule = (ctx, type, jobs, roles, sites, actioncount) ->
   headerln = "[#{ctx.batch}] scheduling #{type} jobs:\n"
   jobsln = "    #{jobs.join(', ')}\n"
   restrictln = ""
@@ -96,6 +105,9 @@ _report = (ctx, type, jobs, roles, sites, actioncount) ->
     restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
   console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
 
+
+# TODO: the user supplied options should not be the context object
+# the context should be carried through by other means.
 _prepareBatch = (jobs, ctx, complete) ->
   if typeof ctx is 'function'
     complete = ctx
@@ -105,6 +117,8 @@ _prepareBatch = (jobs, ctx, complete) ->
   unless ctx.batch
     ctx.batch = util.uid(6)
     ctx.starttime = new Date()
+    ctx.actioncount = 0
+    ctx.shared ?= {}
     console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}"
   jobs = _.flatten([jobs])
   return [jobs, ctx, complete]
@@ -202,7 +216,7 @@ class Jobs
       for site, actions of actionmap
         actioncount += actions.length
         sites.push site
-      _report(ctx, 'site-sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
+      _reportSchedule(ctx, 'site-sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     for site, actions of actionmap
       next = actions.shift()
       if next
@@ -242,7 +256,7 @@ class Jobs
             sites.push site
             actioncount += actions.length        
     if ctx.log
-      _report(ctx, "parallel", jobs, ctx.roles, _.uniq(sites), actioncount)
+      _reportSchedule(ctx, "parallel", jobs, ctx.roles, _.uniq(sites), actioncount)
     while q
       siteactions = q.shift()
       for site, actions of siteactions
@@ -276,7 +290,7 @@ class Jobs
           actioncount += actions.length
           q.push { job, site, actions }
     if ctx.log
-      _report(ctx, 'sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
+      _reportSchedule(ctx, 'sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     next = (err) ->
       ++errors if err
       w = q.shift()

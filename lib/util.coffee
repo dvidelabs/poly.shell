@@ -1,3 +1,4 @@
+
 # min .. max integer range, both incl.
 exports.randomIntRangeIncl = (min, max) ->
   Math.floor(Math.random() * (max - min + 1)) + min
@@ -37,7 +38,7 @@ exports.writemap = (map, key, msg = 1, first = "") -> val = map[key] or first; m
 
 # Compare two arrays interpreted as sets.
 # True if x and y has the same members. Duplicates ignored.
-exports.eqSet = eqSet = (x, y) ->
+exports.eqSet = (x, y) ->
   h = {}
   for v in x
     h[v] = true
@@ -48,4 +49,61 @@ exports.eqSet = eqSet = (x, y) ->
 # Like eqSet, but the number of duplicates must match.
 exports.eqlSet = (x, y) ->
     return false if x.length != y.length
-    return eqSet(x, y)
+    return exports.eqSet(x, y)
+
+
+# Prints an indent list on multiple lines
+# list : single element or array of elements to display
+#  returns empty string on empty list
+#  returns formatted string otherwise
+#
+# optional options:
+#  indent : string before start of each line, default 4 spaces
+#  sep : string after each element, except last on a line, default ", "
+#  eol : end of line string, except last line, default "\n"
+#  limit: maximum line width (not counting eol string), default 70
+#    limit exceeded when an indented single element won't fit.
+exports.formatList = (list, opts) ->
+  return "" unless list
+  unless list instanceof Array
+    list = [list]
+  opts = opts or {}
+  limit = opts.limit or 70
+  indent = opts.indent or "    "
+  sep = opts.sep or ", "
+  eol = opts.eol or "\n"
+  buf = ""
+  return "" unless list.length
+  e = list.shift().toString()
+  while true
+    ln = indent + e
+    return buf + ln unless list.length
+    e = list.shift()
+    e = e.toString()
+    while ln.length + sep.length + e.length <= limit
+      ln += sep + e
+      return buf + ln unless list.length
+      e = list.shift()
+      e = e.toString()
+    buf += ln + eol
+
+# Splits a string into lines and returns
+# a new string with a lines  indented
+#
+# Optional options:
+#  indent: string inserted at start of each line, default 4 spaces
+#  eol: string inserted at the end of each line, except the last, default '\n'
+#  split: string used to split into lines, default '\n'
+exports.indentMsg = (msg, opts) ->
+  msg = msg.toString()
+  opts = opts or {}
+  indent = opts.indent or "    "
+  eol = opts.eol or '\n'
+  split = opts.split or '\n'
+  lines = msg.split(split)
+  buf = ""
+  n = lines.length
+  for l in lines
+    buf += indent + l
+    buf += eol if --n
+  return buf
