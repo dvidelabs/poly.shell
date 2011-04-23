@@ -80,6 +80,21 @@ class Job
       util.pushmap actionmap, site, actions, ->
         @runSiteActions ctx, site, actions, _cb
 
+
+_report = (type, jobs, roles, sites, actioncount) ->      
+  headerln = "scheduling #{type} jobs:\n"
+  jobsln = "    #{jobs.join(', ')}\n"
+  restrictln = ""
+  if sites.length
+    matchln = "  matching #{actioncount} actions (total) on sites:\n"
+    siteln = "    #{sites.join(', ')}"
+  else
+    matchln = "  schedule did not match any actions on any sites\n"
+    siteln = ""
+  if roles
+    restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
+  console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
+
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.
 # Sites can be defined using the Environments class
@@ -92,7 +107,14 @@ class Jobs
   constructor: (@sites) ->
  
     @_jobs = {}
-  
+
+  _findJob: (ctx, jobname) ->
+    if job = @_jobs[jobname]
+      return job
+    throw new Error "job #{jobname} not found" unless ctx.allowMissingJob
+    console.log "ignoring undefined job #{jobname}" if ctx.log
+    return null
+    
   # add may be called multiple times with same name
   # but different roles.
   #
@@ -136,21 +158,7 @@ class Jobs
       @_jobs[name] = job = new Job(name, @sites)
     job.addAction roles, actions
     return job
-
-  _report = (type, jobs, roles, sites, actioncount) ->      
-    headerln = "scheduling #{type} jobs:\n"
-    jobsln = "    #{jobs.join(', ')}\n"
-    restrictln = ""
-    if sites.length
-      matchln = "  matching #{actioncount} actions (total) on sites:\n"
-      siteln = "    #{sites.join(', ')}"
-    else
-      matchln = "  schedule did not match any actions on any sites\n"
-      siteln = ""
-    if roles
-      restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
-    console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
-
+      
   # Run job or jobs in sequence per site, but in parallel over all sites.
   # Actions within a single job always run concurrently.
   #
@@ -177,17 +185,15 @@ class Jobs
       ++errors if err
       complete(errors or null) unless --pending  
     for jobname in jobs      
-      if job = @_jobs[jobname]        
+      if job = @_findJob ctx, jobname
         job.chainJobActions actionmap, ctx, cb
-      else
-        throw new Error "job '#{jobname}' not found" unless ctx.allowMissingJob
     if ctx.log
       sites = []
       actioncount = 0
       for site, actions of actionmap
         actioncount += actions.length
         sites.push site
-      _report('site sequential', jobs, ctx.roles, sites, actioncount)
+      _report('site sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     for site, actions of actionmap
       next = actions.shift()
       if next
@@ -204,7 +210,7 @@ class Jobs
   #   (unless missing or 'any').
   # `ctx.breakOnError` has no effect since all
   #   actions are started before we can detect errors.
-  # `ctx.allowMissingJobs = true` : ignore missing jobs.
+  # `ctx.allowMissingJob = true` : ignore missing jobs.
   # `complete` : called with null or error count
   #   once all actions have completed.
   # See also runSiteSequential.
@@ -223,11 +229,8 @@ class Jobs
     q = []
     sites = []
     actioncount = 0
-    
     for jobname in jobs
-      unless job = @_jobs[jobname]
-        throw "job '#{job.name}' not found" unless ctx.allowMissingJob
-      else
+      if job = @_findJob ctx, jobname
         siteactions = job.siteActions(ctx.roles)
         q.push siteactions
         if ctx.log
@@ -235,8 +238,7 @@ class Jobs
             sites.push site
             actioncount += actions.length        
     if ctx.log
-      sites = _.uniq(sites)
-      _report("parallel", jobs, ctx.roles, sites, actioncount)
+      _report("parallel", jobs, ctx.roles, _.uniq(sites), actioncount)
     while q
       siteactions = q.shift()
       for site, actions of siteactions
@@ -269,11 +271,7 @@ class Jobs
     sites = []
     actioncount = 0
     for jobname in jobs
-      job = _jobs[jobname]
-      unless job
-        throw "job #{jobname} not found" unless ctx.allowMissingJob
-        console.log "ignoring undefined job #{jobname}" if ctx.log
-      else
+      if job = @_findJob ctx, jobname
         siteactions = job.siteActions(ctx.roles)
         pending = 1
         sites = []
@@ -283,8 +281,7 @@ class Jobs
           actioncount += actions.length
           q.push { site, actions }
     if ctx.log
-      sites = _.uniq(sites)
-      _report('sequential', jobs, ctx.roles, sites, actioncount)
+      _report('sequential', jobs, ctx.roles, _.uniq(sites), actioncount)
     next = (err) ->
       ++errors if err
       w = q.shift()

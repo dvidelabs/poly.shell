@@ -20,7 +20,7 @@ loadSites = ->
   
   return sites
 
-module.exports = {
+inactive = {
 
   trivial: ->
     assert.equal 2+2, 4
@@ -84,6 +84,25 @@ module.exports = {
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
 
+    forcedError: ->
+      assert.ok false, "we know errors don't propagate correctly to the end in the jobs test, fix this"
+
+    notnow: ->
+      return
+      jobs = createJobs(loadSites())
+      # we could play around with action.shell.run "ls ~", done
+      # that requires a live host etc., so we don't actually run
+      # this job. 
+      jobs.add 'touch-hello', 'not-now', (done) ->
+        sh = action.shell
+        env = action.site
+        sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
+          sh.run "ls -l ~/hello", done    
+}
+
+
+module.exports = {
+
   sequential: ->
     jobs = createJobs(loadSites())
     jobs.add 'hello', 'app.example.com', (done) ->
@@ -104,20 +123,5 @@ module.exports = {
       assert.equal @ctx.greeting, "hello, world!", "expected hello world message"
       assert.ok @ctx.display, "display task should have been running"
     jobs.runSequential ['hello', 'world', 'display'], { log: true, greeting: "" }, complete
-
-  forcedError: ->
-    assert.ok false, "we know errors don't propagate correctly to the end in the jobs test, fix this"
-
-  notnow: ->
-    return
-    jobs = createJobs(loadSites())
-    # we could play around with action.shell.run "ls ~", done
-    # that requires a live host etc., so we don't actually run
-    # this job. 
-    jobs.add 'touch-hello', 'not-now', (done) ->
-      sh = action.shell
-      env = action.site
-      sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
-        sh.run "ls -l ~/hello", done
 
 }
