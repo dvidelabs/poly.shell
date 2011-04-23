@@ -37,23 +37,30 @@ class Job
 
   # Run all actions for a single site concurrently.
   runSiteActions: (ctx, site, actions, cb) ->
-    cfg = @sites.get(site)
+    config = @sites.get(site)
     n = actions.length
     return cb null, site unless n
     i = 0
+    total = n
     for action in actions
       ++i
+      if total == 1
+        name = @name
+      else
+        name = @name + '(' + i + '/' + total + ')'
       e = null
       _cb = (err) ->
         if err
           e ?= []
           e.push err
-        cb e, site unless --n
-        
-      if ctx.log
-        console.log  "job '#{@name} runs action # #{i} at site: '#{site}'"
-
-      action.call { ctx, action: i, job: @name, site : cfg, exit: _cb, shell: shell(cfg) }, _cb
+          console.log  "#{site} : failed job: #{name} with error: #{err}" if ctx.log
+        else
+          console.log  "#{site} : completed job: #{name}" if ctx.log
+        cb(e, site) unless --n
+      console.log  "#{site} : starting job: #{name}" if ctx.log
+      config.log = ctx.log
+      action.call { ctx, index: i, total, job: name, site: config, shell: shell(config) }, _cb
+    return null
 
   # Using a queue per site (`actionmap`) makes it easier
   # to extend the per site action sequence at both ends.

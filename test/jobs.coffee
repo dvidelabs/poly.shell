@@ -10,7 +10,7 @@ loadSites = ->
   sites = createSites()
   
   # add two example sites in the deploy role; both with the property symlink = true
-  sites.add ['example.com', 'app.example.com'], 'deploy', { symlink: true }
+  sites.add ['example.com', 'app.example.com'], ['deploy', 'live'], { symlink: true }
   
   # add the property primary = true to the primary domain.
   sites.update 'app.example.com', { primary: true }
@@ -21,22 +21,22 @@ loadSites = ->
   return sites
 
 module.exports = {
-  
+
   trivial: ->
     assert.equal 2+2, 4
-  
+
   sites: ->
     sites = loadSites()
     assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
     assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
     assert.ok sites.get('foo.bar').log
     jobs = createJobs(sites)
-    
+
   jobs: ->
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
-        
-    context = { sitecount: {}, log: true }
+
+    context = { sitecount: {}, livecount: {}, log: true }
     path = (env) -> env.path or "~/tmp"
     complete = (errors) ->
       # node.js convention is to return null when there are no
@@ -49,24 +49,29 @@ module.exports = {
       console.log "context: "
       console.log context
       assert.ok context.checkrunsDone
-  
+
     # add a job named deploy in the deploy role
     jobs.add 'deploy', (done) ->
       # increment a counter for every site this action fires on
       util.addmap @ctx.sitecount, @site.name
       # important to ensure progress
       done()
-    
+
+    # add action to deploy job that only runs in the live role
+    jobs.add 'deploy', 'live', (done) ->
+      # increment a counter for every site this action fires on
+      util.addmap @ctx.livecount, @site.name
+      # important to ensure progress
+      done()
+
     # add a job named countertest to the test role.
     jobs.add 'countertest', ['test'], (done) ->
-      console.log @job
       assert.ok @site.log
       util.addmap @ctx.sitecount, @site.name
       done()
-    
+
     # add a job named checkruns in the roles 'test' and 'deploy'
     jobs.add 'checkruns', ['test', 'deploy'], (done) ->
-      console.log @job
       # only deploy
       assert.equal @ctx.sitecount['example.com'], 1
       # test and deploy
@@ -77,15 +82,13 @@ module.exports = {
     # these are job names, not roles
     jobs.runParallel ['deploy', 'countertest'], context, ->
       jobs.run 'checkruns', context, complete
-          
-  notnow: ->
-    jobs = createJobs(loadSites())
 
+  notnow: ->
+    return
+    jobs = createJobs(loadSites())
     # we could play around with action.shell.run "ls ~", done
     # that requires a live host etc., so we don't actually run
     # this job. 
-    # async jobs must request a callback using this.async() before the
-    # function return.
     jobs.add 'touch-hello', 'not-now', (done) ->
       sh = action.shell
       env = action.site
@@ -93,4 +96,3 @@ module.exports = {
         sh.run "ls -l ~/hello", done
 
 }
-
