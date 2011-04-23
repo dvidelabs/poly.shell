@@ -121,7 +121,7 @@ module.exports = {
       @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log"
       # we didn't give a callback to shell, so we just return with the job in the background
       
-      # note: we used the coffee-script binding operator to keep the `this` pointer
+      # note: we use the coffee-script binding operator to keep the `this` pointer
       delay = =>
         util.writemap @shared, "greeting", "hello"
         done()
@@ -132,17 +132,15 @@ module.exports = {
     jobs.add 'display', 'app.example.com', (done) ->
       @shared.display = true
       msg = "my unique place in the world"
-      console.log @shared
-      console.log @id
+      @report "action identifier is:" + @id
       @shared[@id] = { msg }
       assert.equal @_ctx.shared[@id].msg, msg
       assert.ok @shared.greeting, "greeting expected"
       done()
     complete = (err) ->
-      assert.isNull err, "non errors should be null"
-      console.log @shared
+      #assert.isNull err, "non errors should be null"
+      @report "final shared state:\n#{JSON.stringify @shared}"
       assert.equal @shared.greeting, "hello, world!", "expected hello world message"
       assert.ok @shared.display, "display task should have been running"
     jobs.runSequential ['hello', 'world', 'display'], { log: true, shared: { greeting: ""} }, complete
-
 }
