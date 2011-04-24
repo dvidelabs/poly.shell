@@ -210,7 +210,7 @@ module.exports = {
     jobs.add 'par1', 'foo.bar', -> console.log 'par1'
     jobs.runParallel 'par1', log:true, name: 'par1'
       
-  parallel: ->
+  mixed: ->
 
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
@@ -251,15 +251,15 @@ module.exports = {
       # test and deploy
       assert.equal @shared.sitecount['foo.bar'], 2
       @shared.checkrunsDone = true
+      @report "running in roles #{opts.roles or "<all>"}"
 
-    # these are job names, not roles
+    assert.ok false, "checkruns is currently no running"
     opts.roles = ['test', 'live']
-    
     jobs.runParallel ['deploy', 'countertest'], opts, ->
-      jobs.run 'checkruns', opts, complete    
+      jobs.run 'checkruns', complete    
 }
 
-debug = false #'syncfail'
+debug = 'mixed'
 
 if debug
   x = module.exports
