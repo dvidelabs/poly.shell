@@ -45,21 +45,22 @@ _prepareBatch = (type, jobs, opts_in, complete) ->
     complete = opts_in
     opts_in = null
   complete ?= ->
-  opts_in ?= {}
   ctx = @_ctx or {}
+  opts_in ?= {}
+  ctx.opts ?= {}
+  opts = _.clone _.extend(ctx.opts, opts_in)
   unless ctx.batch
     ctx.batch = util.uid(6)
     ctx.starttime = new Date()
     ctx.actioncount = 0
     ctx.schedulecount = 0
     ctx.shared ?= {}
-    ctx.opts ?= {}
-    console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}"
+    # this is (should) be the only non-error message that is printed without the opts.log option.
+    console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}" unless opts.log or not opts.quiet
   ++ctx.schedulecount
   # ctx.opts carries over options for the next schedule,
   # but are never used directly
   
-  opts = _.clone _.extend(ctx.opts, opts_in)
   jobs = _.flatten([jobs])
   name = if opts.name then " (#{opts.name})" else ""
   issuer = "[#{ctx.batch}-#{ctx.schedulecount}] :#{name} #{type}"
@@ -67,7 +68,7 @@ _prepareBatch = (type, jobs, opts_in, complete) ->
   sched = {
     _ctx: ctx
     report: (msg) ->
-      if ctx.log
+      if opts.log or opts.report
         console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
     shared: ctx.shared
     batch: ctx.batch
@@ -83,8 +84,9 @@ _prepareBatch = (type, jobs, opts_in, complete) ->
     complete.apply sched, args
     if opts.log
       errors = if args.length then args[0] else null
-      emsg = if errors then "with #{errors} errors" else "successfully"
-      console.log "#{issuer} job schedule completed #{emsg}"
+      if opts.log or (errors and not opts.quiet)
+        emsg = if errors then "with #{errors} errors" else "successfully"
+        console.log "#{issuer} job schedule completed #{emsg}"
   sched._complete = _complete
   return sched
 
@@ -109,12 +111,15 @@ class Job
 
   # Run all actions for a single site concurrently.
   runSiteActions: (sched, site, actions, cb) ->
+    opts = sched.opts
     config = @sites.get(site)
-    config.log = sched.opts.log
+    config.log = opts.log
+    config.quiet = opts.quiet
     n = actions.length
     return cb null, site unless n
     i = 0
     total = n
+    console.log "[#{sched.id}] : running #{n} actions in schedule" if opts.log
     for action in actions
       ++i
       if total == 1
@@ -132,25 +137,28 @@ class Job
         shared: ctx.shared, batch: ctx.batch, id, issuer,
         index: i, total, job: name, site: config, shell: shell(config),
         report : (msg) ->
-          state = if n then "" else " (background)"
-          console.log "#{issuer} :#{state} reporting: #{_fmtMsg(msg)}"
+          if opts.log or opts.report
+            state = if n then "" else " (background)"
+            console.log "#{issuer} :#{state} reporting: #{_fmtMsg(msg)}"
       }
       _cb = (err) ->
         if n == 0
           msg = "action fail or action async callback used after action termination"
           console.log "\nNOT GOOD : #{issuer} :#{_fmtMsg(msg)}\n"
-          Throw new Error "action fail or action async callback used after action termination"
+          throw new Error "action fail or action async callback used after action termination"
+        if n < 0
+          throw new Error "internal schedule error"
         if err
           e ?= []
           e.push err
-          console.log  "#{issuer} : failed job: #{name} with error:#{_fmtMsg(err)}" if ctx.log
+          console.log  "#{issuer} : failed job: #{name} with error:#{_fmtMsg(err)}" if opts.log or not opts.quiet
         else
-          console.log  "#{issuer} : completed job: #{name}" if ctx.log
+          console.log  "#{issuer} : completed job: #{name}" if opts.log
         cb(e, actionObj) unless --n
       actionObj.async = () -> ++n; _cb
       actionObj.fail = (err) -> ++n; _cb(err)
-      console.log  "#{issuer} : starting job: #{name}" if ctx.log
-      config.log = sched.opts.log
+      console.log  "#{issuer} : starting job: #{name}" if opts.log
+      config.log = opts.log
       config.issuer = issuer
       action.call actionObj
       # call the cb for action to simplify simple actions
@@ -161,8 +169,8 @@ class Job
       #   setTimeout(cb1, 10)
       #   setTimeout(cb2, 20)
       # sync and async actions can call @fail any number of times to report failure
-      #   @fail hello
-      
+      #   @fail "foo"
+      #   @fail "bar" 
     return null
 
   # Using a queue per site (`actionmap`) makes it easier
@@ -244,13 +252,35 @@ class Jobs
   # It is, however, vital that the callback is called exactly
   # once.
   add: (name, roles, actions) ->
-    if typeof roles is 'function'
+    # extensive arguments checking:  so many cryptic things happen
+    # if actions are not actions and roles are not what they are
+    # thought to be.
+    
+    if typeof name isnt 'string' or name.length < 1      
+      throw new Error "Jobs.add : job name missing"
+
+    roles = [] unless roles
+    actions = [] unless actions
+    roles = _.flatten [roles]
+    actions = _.flatten [actions]
+    if roles.length and typeof roles[0] is 'function'
       actions = roles
-      roles = name
+      roles = [name]
+      if arguments.length > 2
+        throw new Error "Jobs.add unexpected argument after actions"
+    if roles.length == 0
+      roles = [name]
+    for a in actions
+      if typeof a isnt 'function'
+        throw new Error "Jobs.add : action argument should be a function, or an array of functions"
+    for r in roles
+      if typeof r in roles is 'function'
+        throw new Error "Jobs.add : got action function where role name was expected"
     job = @_jobs[name]
     unless job
       @_jobs[name] = job = new Job(name, @sites)
-    job.addAction roles, actions
+    if actions.length > 0
+      job.addAction roles, actions
     return job
 
   # Run job or jobs in site-sequential schedule
@@ -267,6 +297,8 @@ class Jobs
   #    they are defined for.
   # `opts.breakOnError = true` terminates action sequence on a site that fails.
   # `opts.allowMissingJob = true` : allow missing jobs without throwing an exception.
+  # `opts.report = true` : enable custom report output, even when opts.log disabled.
+  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
   # `complete` : called with null or error count once all sites have completed.
   #    complete is wrapped so it runs with a schedule object
   #    as this pointer.
@@ -279,6 +311,7 @@ class Jobs
     pending = 1
     errors = 0
     cb = (err) ->
+      throw new Error "internal schedule error" if pending <= 0
       ++errors if err
       sched._complete(errors or null) unless --pending  
     for jobname in jobs      
@@ -289,7 +322,7 @@ class Jobs
       actioncount = 0
       for site, actions of actionmap
         actioncount += actions.length
-        sites.push site
+        sites.push site if actions.length
       _reportSchedule(sched, _.uniq(sites), actioncount)
     for site, actions of actionmap
       next = actions.shift()
@@ -309,6 +342,8 @@ class Jobs
   #    actions are started before we can detect errors.
   # `opts.allowMissingJob = true` : ignore missing jobs.
   #  missing options are inherited from containing schedules.
+  # `opts.report = true` : enable custom report output, even when opts.log disabled.
+  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
   # `complete` : called with null or error count
   #    once all actions have completed.
   #    complete is wrapped so it runs with a schedule object
@@ -320,6 +355,7 @@ class Jobs
     pending = 1
     errors = 0
     cb = (err) ->
+      throw new Error "internal schedule error" if pending <= 0
       ++errors if err
       sched._complete(errors or null) unless --pending
     q = []
@@ -331,14 +367,15 @@ class Jobs
         q.push siteactions
         if sched.opts.log
           for site, actions of siteactions
-            sites.push site
-            actioncount += actions.length        
+            actioncount += actions.length
+            sites.push site if actions.length
+    pending += actioncount
     _reportSchedule(sched, _.uniq(sites), actioncount)
-    while q
+    while q.length
       siteactions = q.shift()
       for site, actions of siteactions
         job.runSiteActions sched, site, actions, cb
-    sched._complete(errors or null) unless --pending
+    cb()
 
   # Run all jobs in a sequential schedule across all sites.
   # Actions within a single job still run concurrently.
@@ -351,6 +388,8 @@ class Jobs
   # `opts.allowMissingJob = true` : allow missing jobs without
   #   throwing an exception.
   #  missing options are inherited from containing schedules.
+  # `opts.report = true` : enable custom report output, even when opts.log disabled.
+  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
   # `complete` : called with error count once last job completes.
   #    If opts.breakOnError == true, complete may be called earlier.
   #    complete is wrapped so it runs with a schedule object

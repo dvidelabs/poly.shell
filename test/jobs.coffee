@@ -36,57 +36,6 @@ loadSites = ->
   
   return sites
 
-inactive = {
-
-  jobs: ->
-    jobs = createJobs(loadSites())
-    assert.ok jobs.sites.get('foo.bar').log
-
-    shared = { sitecount: {}, livecount: {} }
-    opts = { log: true, shared }
-    
-    path = (env) -> env.path or "~/tmp"
-    complete = (errors) ->
-      # node.js convention is to return null when there are no
-      # errors.
-      if errors
-        console.log "jobs completed with #{errors} errors."
-      else
-        console.log "all jobs completed successfully"
-      assert.isNull errors
-      assert.ok shared.checkrunsDone
-
-    # add a job named deploy in the deploy role
-    jobs.add 'deploy', ->
-      # increment a counter for every site this action fires on
-      util.addmap @shared.sitecount, @site.name
-      # important to ensure progress
-
-    # add action to deploy job that only runs in the live role
-    jobs.add 'deploy', 'live', ->
-      # increment a counter for every site this action fires on
-      util.addmap @shared.livecount, @site.name
-      # important to ensure progress
-
-    # add a job named countertest to the test role.
-    jobs.add 'countertest', ['test'], ->
-      assert.ok @site.log
-      util.addmap @shared.sitecount, @site.name
-
-    # add a job named checkruns in the roles 'test' and 'deploy'
-    jobs.add 'checkruns', ['test', 'deploy'], ->
-      # only deploy
-      assert.equal @shared.sitecount['example.com'], 1
-      # test and deploy
-      assert.equal @shared.sitecount['foo.bar'], 2
-      @shared.checkrunsDone = true
-
-    # these are job names, not roles
-    opts.roles = ['test', 'live']
-    jobs.runParallel ['deploy', 'countertest'], opts, ->
-      jobs.run 'checkruns', opts, complete
-
-}
 
 module.exports = {
 
@@ -225,4 +174,89 @@ module.exports = {
       assert.equal @shared.greeting, "hello, world!", "expected hello world message"
       assert.ok @shared.display, "display task should have been running"
     jobs.runSequential ['hello', 'world', 'display'], { log: true, shared: { greeting: ""} }, complete
+
+  nop: ->
+    x = 0
+    jobs = createJobs(loadSites())
+    jobs.add 'test'
+    jobs.run 'test', {log:true, name:"nop"}, ->
+      assert.equal x, 0
+      assert.equal @_ctx.actioncount, 0
+
+  nearnop: ->
+    x = 0
+    jobs = createJobs(loadSites())
+    # we are relying on the fact that the foo.bar site belongs
+    # to the test role and that the job named 'test' assigns itself to
+    # the 'test' role - otherwise there would be no site on which
+    # to run the test.
+    jobs.add 'test', [(-> ++x), (-> ++x)]
+    jobs.run 'test', {log:true, name:"nearnop"}, ->
+      assert.equal x, 2
+      assert.equal @_ctx.actioncount, 2
+      
+  nops: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'test'
+    jobs.runSequential 'test', log:true, name:"nops"
+
+  par1: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'par1', 'foo.bar', -> console.log 'par1'
+    jobs.runParallel 'par1', log:true, name: 'par1'
+      
+  parallel: ->
+    return # disabled
+    jobs = createJobs(loadSites())
+    assert.ok jobs.sites.get('foo.bar').log
+
+    shared = { sitecount: {}, livecount: {} }
+    opts = { log: true, shared, name: "parallel schedule" }
+
+    path = (env) -> env.path or "~/tmp"
+    complete = (errors) ->
+      # node.js convention is to return null when there are no
+      # errors.
+      if errors
+        console.log "jobs completed with #{errors} errors."
+      else
+        console.log "all jobs completed successfully"
+      assert.isNull errors
+      assert.ok shared.checkrunsDone
+
+    # add a job named deploy in the deploy role
+    jobs.add 'deploy', ->
+      # increment a counter for every site this action fires on
+      util.addmap @shared.sitecount, @site.name
+      # important to ensure progress
+
+    # add action to deploy job that only runs in the live role
+    jobs.add 'deploy', 'live', ->
+      # increment a counter for every site this action fires on
+      util.addmap @shared.livecount, @site.name
+      # important to ensure progress
+
+    # add a job named countertest to the test role.
+    jobs.add 'countertest', ['test'], ->
+      #assert.ok @site.log
+      #util.addmap @shared.sitecount, @site.name
+
+    # add a job named checkruns in the roles 'test' and 'deploy'
+    jobs.add 'checkruns', ['test', 'deploy'], ->
+      # only deploy
+      #zzassert.equal @shared.sitecount['example.com'], 1
+      # test and deploy
+      assert.equal @shared.sitecount['foo.bar'], 2
+      @shared.checkrunsDone = true
+
+    # these are job names, not roles
+    opts.roles = ['test', 'live']
+    
+    # NOTE: currently these two schedules run in different
+    # batches because we have not chained the underlying context object
+#    jobs.runParallel ['deploy', 'countertest'], opts, ->
+#      jobs.run 'checkruns', opts, complete    
+    jobs.runParallel ['countertest'], opts
+
 }
+
