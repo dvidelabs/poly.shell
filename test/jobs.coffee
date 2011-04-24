@@ -78,14 +78,6 @@ module.exports = {
     jobs.run 'syncfail'
     jobs.run 'syncfail', report: true
     
-
-  debug: ->
-    jobs = createJobs(loadSites())
-    jobs.add 'debug', 'example.com', ->
-      @debug "testing debug"
-      @debug "content of site config", @site
-    jobs.run 'syncfail', debug: true, -> @report "sync done"
-
   async: ->
     jobs = createJobs(loadSites())
     jobs.add 'async', 'example.com', ->
@@ -267,7 +259,7 @@ module.exports = {
       jobs.run 'checkruns', opts, complete    
 }
 
-debug = 'syncfail'
+debug = false #'syncfail'
 
 if debug
   x = module.exports
