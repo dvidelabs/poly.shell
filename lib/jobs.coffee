@@ -126,10 +126,16 @@ class Job
       actionObj = {
         _ctx : ctx, _sched: sched,
         shared: ctx.shared, batch: ctx.batch, id, 
+        index: i, total, job: name, site: config, shell: shell(config),
         report : (msg) ->
-          console.log "#{issuer} : reporting: #{_fmtMsg(msg)}"      
-        index: i, total, job: name, site: config, shell: shell(config) }
+          state = if n then "" else " (post-complete)"
+          console.log "#{issuer} :#{state} reporting: #{_fmtMsg(msg)}"
+      }
       _cb = (err) ->
+        if n == 0
+          msg = "action fail or action async callback used after action termination"
+          console.log "\nNOT GOOD : #{issuer} :#{_fmtMsg(msg)}\n"
+          Throw new Error "action fail or action async callback used after action termination"
         if err
           e ?= []
           e.push err
@@ -137,10 +143,22 @@ class Job
         else
           console.log  "#{issuer} : completed job: #{name}" if ctx.log
         cb(e, actionObj) unless --n
+      actionObj.async = () -> ++n; _cb
+      actionObj.fail = (err) -> ++n; _cb(err)
       console.log  "#{issuer} : starting job: #{name}" if ctx.log
       config.log = sched.opts.log
       config.name = issuer
-      action.call actionObj, _cb
+      action.call actionObj
+      # call the cb for action to simplify simple actions
+      _cb()
+      # action can get one or more callbacks by calling async like this
+      #   cb1 = @async()
+      #   cb2 = @async()
+      #   setTimeout(cb1, 10)
+      #   setTimeout(cb2, 20)
+      # sync and async actions can call @fail any number of times to report failure
+      #   @fail hello
+      
     return null
 
   # Using a queue per site (`actionmap`) makes it easier
@@ -252,6 +270,7 @@ class Jobs
   #  over the shared object provided in the action and schedule objects).
   runSiteSequential: (jobs, opts, complete) ->
     sched = _prepareBatch('site-sequential', jobs, opts, complete)    
+    jobs = sched.jobs
     actionmap = {}
     pending = 1
     errors = 0
@@ -293,6 +312,7 @@ class Jobs
   # See also runSiteSequential.
   runParallel: (jobs, opts, complete) ->
     sched = _prepareBatch('parallel', jobs, opts, complete)    
+    jobs = sched.jobs
     pending = 1
     errors = 0
     cb = (err) ->
@@ -334,6 +354,7 @@ class Jobs
   # See also runSiteSequential.
   runSequential: (jobs, opts, complete) ->
     sched = _prepareBatch('sequential', jobs, opts, complete)
+    jobs = sched.jobs
     errors = 0
     q = []
     sites = []

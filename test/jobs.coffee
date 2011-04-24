@@ -57,61 +57,35 @@ inactive = {
       assert.ok shared.checkrunsDone
 
     # add a job named deploy in the deploy role
-    jobs.add 'deploy', (done) ->
+    jobs.add 'deploy', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.sitecount, @site.name
       # important to ensure progress
-      done()
 
     # add action to deploy job that only runs in the live role
-    jobs.add 'deploy', 'live', (done) ->
+    jobs.add 'deploy', 'live', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.livecount, @site.name
       # important to ensure progress
-      done()
 
     # add a job named countertest to the test role.
-    jobs.add 'countertest', ['test'], (done) ->
+    jobs.add 'countertest', ['test'], ->
       assert.ok @site.log
       util.addmap @shared.sitecount, @site.name
-      done()
 
     # add a job named checkruns in the roles 'test' and 'deploy'
-    jobs.add 'checkruns', ['test', 'deploy'], (done) ->
+    jobs.add 'checkruns', ['test', 'deploy'], ->
       # only deploy
       assert.equal @shared.sitecount['example.com'], 1
       # test and deploy
       assert.equal @shared.sitecount['foo.bar'], 2
       @shared.checkrunsDone = true
-      done()
 
     # these are job names, not roles
     opts.roles = ['test', 'live']
     jobs.runParallel ['deploy', 'countertest'], opts, ->
       jobs.run 'checkruns', opts, complete
 
-    forcedError: ->
-      assert.ok false, "we know errors don't propagate correctly to the end in the jobs test, fix this"
-
-    notnow: ->
-      return
-      jobs = createJobs(loadSites())
-      # we could play around with action.shell.run "ls ~", done
-      # that requires a live host etc., so we don't actually run
-      # this job. 
-      jobs.add 'touch-hello', 'not-now', (done) ->
-        sh = action.shell
-        env = action.site
-        sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
-          sh.run "ls -l ~/hello", done    
-
-  sudoshell: ->
-    jobs = createJobs(loadSites())
-    jobs.add 'hello', 'app.example.com', (exit) ->
-      @report "sudoing for ls"
-      @shell.sudo "ls", (err) ->
-        @report err if err
-        exit err
 }
 
 module.exports = {
@@ -126,25 +100,86 @@ module.exports = {
     assert.ok sites.get('foo.bar').log
     jobs = createJobs(sites)
 
+  syncnofail: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'sync', 'example.com', ->
+      @report "sync running"
+    jobs.run 'sync', log: true, -> @report "sync done"
+
+  syncnofail: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'syncnofail', 'example.com', ->
+      err = null
+      @report "sync running"
+      @fail err
+    jobs.run 'syncnofail', log: true, -> @report "sync done"
+    
+  syncfail: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'syncfail', 'example.com', ->
+      @fail "testing sync failure"
+      @fail "can fail multiple times, if we so desire"
+      @report "sync running with expected errors"
+    jobs.run 'syncfail', log: true, -> @report "sync done"
+    
+  async: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'async', 'example.com', ->
+       # don't call async inside the timeout
+       # then our action will have completed prematurely
+       cb1 = @async()
+       cb2 = @async()
+       that = this
+       setTimeout((that.report "timeout 1"; cb1()), 10)
+       setTimeout((that.report "timeout 2"; cb2()), 20)
+    jobs.run 'async', log: true, -> @report "async done"
+
+  asyncfail: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'asyncfail', 'example.com', ->
+       # each callback may receive an error
+       cb1 = @async()
+       cb2 = @async()
+       # we may use coffee-script binding instead of that
+       setTimeout((=> @report "timeout 1"; cb1()), 10)
+       setTimeout((=> @report "timeout 2"; cb2 "something bad happened"), 20)
+    jobs.run 'asyncfail', log: true, -> @report "async done with expected error"
+
+  noasync: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'noasync', 'example.com', ->
+       setTimeout((-> @report "timeout"), 10)
+    jobs.run 'noasync', log: true, -> @report "sync action done with async background job"
+
   shell: ->
     jobs = createJobs(loadSites())
-    jobs.add 'putmsg', 'example.com', (done) ->
-      
+    jobs.add 'putmsg', 'example.com', ->
+      cb = @async()
       # note: we use the coffee-script binding operator to keep the `this` pointer
       delay = =>
-        # pass done to shell so we are sure the file exists subsequently
-        @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log", done()
+        # pass a completion function to shell so we are sure the file exists subsequently
+        @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log", cb
       setTimeout(delay, 400)
-    jobs.add 'getmsg', 'example.com', (done) ->
+    jobs.add 'getmsg', 'example.com', ->
         # we didn't give a callback to shell, so we just return with the job in the background
         @shell.run "echo tmp/#{@id}"
-        done()
     jobs.run ['putmsg', 'getmsg'], name : "shelltest", log: true, ->
       assert.equal 2, @_ctx.actioncount
+
+  lateshell: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'latetimeout', 'example.com', ->
+      # the shell can start after our action is done
+      # just don't use @fail or @async after the fact.
+      late = =>
+        @shell.run "echo starting shell after action has terminated"
+        @report "reporting from undead action"
+      setTimeout(late , 100)      
+    jobs.run 'latetimeout'
     
   sequential: ->
     jobs = createJobs(loadSites())
-    jobs.add 'hello', 'app.example.com', (done) ->
+    jobs.add 'hello', 'app.example.com', ->
       # batch is a common identifier used in reporting
       # the action id is a counter extension to the batch identifier,
       # unique for this action
@@ -154,15 +189,16 @@ module.exports = {
       @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log"
       # we didn't give a callback to shell, so we just return with the job in the background
       
-      # note: we use the coffee-script binding operator to keep the `this` pointer
+      # note: we use the coffee-script binding operator to keep the `this` pointer,
+      #       and we allocate a callback to delay job completion.
+      cb = @async()
       delay = =>
         util.writemap @shared, "greeting", "hello"
-        done()
+        cb()
       setTimeout(delay, 100)
-    jobs.add 'world', 'example.com', (done) ->
+    jobs.add 'world', 'example.com', ->
       util.writemap @shared, "greeting", ", world!"
-      done()
-    jobs.add 'display', 'app.example.com', (done) ->
+    jobs.add 'display', 'app.example.com', ->
       @shared.display = true
       msg = "my unique place in the world"
       @report "action identifier: " + @id
@@ -174,7 +210,6 @@ module.exports = {
       assert.equal @_ctx.shared[@id].msg, msg
       assert.equal @_sched.shared[@id].msg, msg
       assert.ok @shared.greeting, "greeting expected"
-      done()
     complete = (err) ->
       assert.isNull err, "non errors should be null"
       assert.equal @index, 1 # first and only schedule
