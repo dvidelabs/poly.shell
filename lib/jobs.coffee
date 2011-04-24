@@ -71,6 +71,8 @@ _prepareBatch = (type, jobs, opts_in, complete) ->
         console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
     shared: ctx.shared
     batch: ctx.batch
+    name: opts.name
+    issuer
     type
     opts
     jobs
@@ -108,6 +110,7 @@ class Job
   # Run all actions for a single site concurrently.
   runSiteActions: (sched, site, actions, cb) ->
     config = @sites.get(site)
+    config.log = sched.opts.log
     n = actions.length
     return cb null, site unless n
     i = 0
@@ -123,12 +126,13 @@ class Job
       ++ctx.actioncount
       id = "#{ctx.batch}-#{sched.index}-#{ctx.actioncount}"
       issuer = "[#{id}] #{site}"      
+      config.issuer = issuer
       actionObj = {
         _ctx : ctx, _sched: sched,
-        shared: ctx.shared, batch: ctx.batch, id, 
+        shared: ctx.shared, batch: ctx.batch, id, issuer,
         index: i, total, job: name, site: config, shell: shell(config),
         report : (msg) ->
-          state = if n then "" else " (post-complete)"
+          state = if n then "" else " (background)"
           console.log "#{issuer} :#{state} reporting: #{_fmtMsg(msg)}"
       }
       _cb = (err) ->
@@ -147,7 +151,7 @@ class Job
       actionObj.fail = (err) -> ++n; _cb(err)
       console.log  "#{issuer} : starting job: #{name}" if ctx.log
       config.log = sched.opts.log
-      config.name = issuer
+      config.issuer = issuer
       action.call actionObj
       # call the cb for action to simplify simple actions
       _cb()
@@ -166,7 +170,7 @@ class Job
   # {cb} is called once per site with actions in the given job
   chainJobActions: (actionmap, sched, cb) ->
     siteactions = @siteActions(sched.opts.roles)
-    for site, actions in siteactions
+    for site, actions of siteactions
       _cb = (err) ->
         next = undefined
         unless err and sched.opts.breakOnError
@@ -176,8 +180,8 @@ class Job
         else
           cb err, site
       # be careful to modify array in place
-      util.pushmap actionmap, site, actions, ->
-        @runSiteActions sched, site, actions, _cb
+      util.pushmap actionmap, site, =>
+        @runSiteActions(sched, site, actions, _cb)
 
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.

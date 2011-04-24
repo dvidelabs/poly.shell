@@ -150,19 +150,27 @@ module.exports = {
     jobs.add 'noasync', 'example.com', ->
        setTimeout((-> @report "timeout"), 10)
     jobs.run 'noasync', log: true, -> @report "sync action done with async background job"
-
+}
+#deactivate above tests
+module.exports = {
   shell: ->
     jobs = createJobs(loadSites())
     jobs.add 'putmsg', 'example.com', ->
       cb = @async()
+      logfile = "tmp/#{@id}.log"
+      @shared[@site.name] or= {}
+      @shared[@site.name].logfile = logfile
+      console.log @shared
       # note: we use the coffee-script binding operator to keep the `this` pointer
       delay = =>
         # pass a completion function to shell so we are sure the file exists subsequently
-        @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log", cb
+        @shell.run "mkdir -p tmp && echo hello > #{logfile}", cb
       setTimeout(delay, 400)
     jobs.add 'getmsg', 'example.com', ->
-        # we didn't give a callback to shell, so we just return with the job in the background
-        @shell.run "echo tmp/#{@id}"
+      console.log @shared
+      logfile = @shared[@site.name].logfile
+      # we didn't give a callback to shell, so we just return with the job in the background
+      @shell.run "echo #{logfile} contains: && cat #{logfile}"
     jobs.run ['putmsg', 'getmsg'], name : "shelltest", log: true, ->
       assert.equal 2, @_ctx.actioncount
 

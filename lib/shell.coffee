@@ -9,7 +9,7 @@ util = require './util'
 spawn = (cmd, args, opts, cb) ->
   args = [] unless args
   opts = {} unless opts
-  name = opts.name ? ""
+  name = opts.issuer or opts.name or ""
   if typeof args == 'function'
       cb = args
       args = []
@@ -73,6 +73,7 @@ class Shell
   # If host or opts.host is defined, a remote shell is created,
   # otherwise a local shell is created (setting or not setting opts.ssh does not affect this)
   # opts.name <string> optional informative system name used for logging (not user name for remote login).
+  # opts.issuer <string> optional name of entity starting shell, when present, used instead of name for logging.
   # opts.sh <string> overrides local system shell when opts.host is not specified.
   #                  by default $SHELL is used when present
   # opts.ssh <string> allows for a specific ssh path used when opts.host is specified.
@@ -101,7 +102,7 @@ class Shell
     if typeof opts == 'string'
       opts = host: opts
     if opts.host
-      @name = opts.name or opts.host
+      @name = opts.issuer or opts.name or opts.host
       @remote = true
       @shell = opts.ssh or 'ssh'
       if opts.port
@@ -113,7 +114,7 @@ class Shell
       pushCustomArgs()
       args.push opts.host
     else
-      @name = opts.name or "local-system"
+      @name = opts.issuer or opts.name or "local-system"
       @remote = false
       @shell = opts.shell or process.env.shell or 'sh'
       pushCustomArgs()
