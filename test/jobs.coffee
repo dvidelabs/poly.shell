@@ -100,7 +100,7 @@ module.exports = {
        action = this
        setTimeout((-> action.report "timeout"), 10)
     jobs.run 'noasync', log: true, -> @report "sync action done with async background job"
-    
+
   shell: ->
     jobs = createJobs(loadSites())
     jobs.add 'putmsg', 'example.com', ->
@@ -108,14 +108,12 @@ module.exports = {
       logfile = "tmp/#{@id}.log"
       @shared[@site.name] or= {}
       @shared[@site.name].logfile = logfile
-      console.log @shared
       # note: we use the coffee-script binding operator to keep the `this` pointer
       delay = =>
         # pass a completion function to shell so we are sure the file exists subsequently
         @shell.run "mkdir -p tmp && echo hello > #{logfile}", cb
       setTimeout(delay, 400)
     jobs.add 'getmsg', 'example.com', ->
-      console.log @shared
       logfile = @shared[@site.name].logfile
       # we didn't give a callback to shell, so we just return with the job in the background
       @shell.run "echo #{logfile} contains: && cat #{logfile}"
@@ -206,7 +204,7 @@ module.exports = {
     jobs.runParallel 'par1', log:true, name: 'par1'
       
   parallel: ->
-    return # disabled
+
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
 
@@ -228,23 +226,21 @@ module.exports = {
     jobs.add 'deploy', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.sitecount, @site.name
-      # important to ensure progress
 
     # add action to deploy job that only runs in the live role
     jobs.add 'deploy', 'live', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.livecount, @site.name
-      # important to ensure progress
 
     # add a job named countertest to the test role.
     jobs.add 'countertest', ['test'], ->
-      #assert.ok @site.log
-      #util.addmap @shared.sitecount, @site.name
+      assert.ok @site.log
+      util.addmap @shared.sitecount, @site.name
 
     # add a job named checkruns in the roles 'test' and 'deploy'
     jobs.add 'checkruns', ['test', 'deploy'], ->
       # only deploy
-      #zzassert.equal @shared.sitecount['example.com'], 1
+      assert.equal @shared.sitecount['example.com'], 1
       # test and deploy
       assert.equal @shared.sitecount['foo.bar'], 2
       @shared.checkrunsDone = true
@@ -252,11 +248,13 @@ module.exports = {
     # these are job names, not roles
     opts.roles = ['test', 'live']
     
-    # NOTE: currently these two schedules run in different
-    # batches because we have not chained the underlying context object
-#    jobs.runParallel ['deploy', 'countertest'], opts, ->
-#      jobs.run 'checkruns', opts, complete    
-    jobs.runParallel ['countertest'], opts
-
+    jobs.runParallel ['deploy', 'countertest'], opts, ->
+      jobs.run 'checkruns', opts, complete    
 }
+
+debug = false #'shell'
+
+if debug
+  x = module.exports
+  module.exports = { test: -> x[debug]() } if debug
 
