@@ -1,10 +1,27 @@
 assert = require('assert')
 createJobs = require('..').jobs
 util = require('..').util
-createSites = require('..').envs
+envs = require('..').envs
+createSites = envs
 
 console.log "=> jobs test"
 
+# The site settings are passed to the Shell constructor for running shell commands.
+# If host: is missing, the shell command runs locally.
+# If host is set, for example: { host: example.com },
+# then .ssh/config file can be configured to point to a real test site
+# with a real user account with ssh keys.
+#
+# The job runner overrides a few settings passed to the shell:
+# The shell name and log option are passed from the responsible action.
+#
+# Site settings may also be used for arbitrary other settings since job actions
+# can access a copy of the environment through the this.site property.
+#
+# (More complex configurations can be had by adding an envs() object to the
+# shared object passed to the job scheduler. This supports role based configurations
+# that are not necessarily interpreted as sites.)
+#
 loadSites = ->
   sites = createSites()
   
@@ -20,16 +37,6 @@ loadSites = ->
   return sites
 
 inactive = {
-
-  trivial: ->
-    assert.equal 2+2, 4
-
-  sites: ->
-    sites = loadSites()
-    assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
-    assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
-    assert.ok sites.get('foo.bar').log
-    jobs = createJobs(sites)
 
   jobs: ->
     jobs = createJobs(loadSites())
@@ -98,7 +105,7 @@ inactive = {
         sh.run ["mkdir -p #{path(env)}", "touch ~/hello-#{env.name}"], ->
           sh.run "ls -l ~/hello", done    
 
-  shell: ->
+  sudoshell: ->
     jobs = createJobs(loadSites())
     jobs.add 'hello', 'app.example.com', (exit) ->
       @report "sudoing for ls"
@@ -109,6 +116,32 @@ inactive = {
 
 module.exports = {
 
+  trivial: ->
+    assert.equal 2+2, 4
+
+  sites: ->
+    sites = loadSites()
+    assert.ok util.eqSet(sites.list('test'), ['foo.bar'])
+    assert.ok util.eqlSet(sites.list(['test', 'deploy']), ['foo.bar', 'example.com', 'app.example.com'])
+    assert.ok sites.get('foo.bar').log
+    jobs = createJobs(sites)
+
+  shell: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'putmsg', 'example.com', (done) ->
+      
+      # note: we use the coffee-script binding operator to keep the `this` pointer
+      delay = =>
+        # pass done to shell so we are sure the file exists subsequently
+        @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log", done()
+      setTimeout(delay, 400)
+    jobs.add 'getmsg', 'example.com', (done) ->
+        # we didn't give a callback to shell, so we just return with the job in the background
+        @shell.run "echo tmp/#{@id}"
+        done()
+    jobs.run ['putmsg', 'getmsg'], name : "shelltest", log: true, ->
+      assert.equal 2, @_ctx.actioncount
+    
   sequential: ->
     jobs = createJobs(loadSites())
     jobs.add 'hello', 'app.example.com', (done) ->

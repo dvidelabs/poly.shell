@@ -10,13 +10,13 @@ _fmtMsg = (msg, trailingnl) ->
     "\n" + util.indentMsg(msg, _fmt)
   else " " + msg
   if trailingnl
-    msg += '/n'
+    msg += '\n'
   msg
 
 _fmtLst = (lst, trailingnl) ->
   msg = util.formatList(lst, _fmt)
   if trailingnl
-    msg += '/n'
+    msg += '\n'
   msg
 
 _reportSchedule = (sched, sites, actioncount) ->
@@ -26,14 +26,15 @@ _reportSchedule = (sched, sites, actioncount) ->
   jobs = sched.jobs
   type = sched.type
   id = sched.id
-  headerln = "[#{id}] : scheduling #{type} jobs:\n"
+  name = if sched.opts.name then " (#{sched.opts.name})" else ""
+  headerln = "[#{id}] :#{name} scheduling #{type} jobs:\n"
   jobsln = _fmtLst jobs, true
   restrictln = ""
   if sites.length
     matchln = "  matching #{actioncount} actions (total) distributed over sites:\n"
-    siteln = _fmtLst sites, true
+    siteln = _fmtLst sites
   else
-    matchln = "  schedule did not match any actions on any sites\n"
+    matchln = "  schedule did not match any actions on any sites"
     siteln = ""
   if roles
     restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
@@ -57,9 +58,11 @@ _prepareBatch = (type, jobs, opts_in, complete) ->
   ++ctx.schedulecount
   # ctx.opts carries over options for the next schedule,
   # but are never used directly
+  
   opts = _.clone _.extend(ctx.opts, opts_in)
   jobs = _.flatten([jobs])
-  issuer = "[#{ctx.batch}-#{ctx.schedulecount}] : #{type}"
+  name = if opts.name then " (#{opts.name})" else ""
+  issuer = "[#{ctx.batch}-#{ctx.schedulecount}] :#{name} #{type}"
 
   sched = {
     _ctx: ctx
@@ -273,7 +276,7 @@ class Jobs
     sched._complete(errors or null) unless --pending
 
   # synonym for default run mode
-  run: @runSiteSequential
+  run: (args...) -> @runSiteSequential.apply(this, args)
 
   # Run all actions of all jobs in a parallel schedule.
   # `jobs` : job name or (nested) array of job names.
