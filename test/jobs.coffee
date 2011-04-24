@@ -51,26 +51,41 @@ module.exports = {
 
   syncnofail: ->
     jobs = createJobs(loadSites())
-    jobs.add 'sync', 'example.com', ->
-      @report "sync running"
-    jobs.run 'sync', log: true, -> @report "sync done"
-
-  syncnofail: ->
-    jobs = createJobs(loadSites())
     jobs.add 'syncnofail', 'example.com', ->
+      @report "syncnofail running"
+    jobs.run 'syncnofail', log: true, -> @report "syncnofail done"
+
+  syncnofail2: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'syncnofail2', 'example.com', ->
       err = null
-      @report "sync running"
+      @report "syncnofail2 running"
       @fail err
-    jobs.run 'syncnofail', log: true, -> @report "sync done"
+    jobs.run 'syncnofail2', log: true
     
   syncfail: ->
     jobs = createJobs(loadSites())
     jobs.add 'syncfail', 'example.com', ->
       @fail "testing sync failure"
       @fail "can fail multiple times, if we so desire"
-      @report "sync running with expected errors"
-    jobs.run 'syncfail', log: true, -> @report "sync done"
+      @report "#{@job}-#{@index} running with expected errors"
+      @debug "options", @opts
+      console.log "syncfail ..."
+    jobs.run 'syncfail', log: true, debug: true
+    jobs.run 'syncfail', log: true, debug: false
+    jobs.run 'syncfail', log: false, debug: true
+    jobs.run 'syncfail', log: false, debug: true, quiet: true
+    jobs.run 'syncfail'
+    jobs.run 'syncfail', report: true
     
+
+  debug: ->
+    jobs = createJobs(loadSites())
+    jobs.add 'debug', 'example.com', ->
+      @debug "testing debug"
+      @debug "content of site config", @site
+    jobs.run 'syncfail', debug: true, -> @report "sync done"
+
   async: ->
     jobs = createJobs(loadSites())
     jobs.add 'async', 'example.com', ->
@@ -252,7 +267,7 @@ module.exports = {
       jobs.run 'checkruns', opts, complete    
 }
 
-debug = false #'shell'
+debug = 'syncfail'
 
 if debug
   x = module.exports

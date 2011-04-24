@@ -121,7 +121,7 @@ _runSiteActions = (jobname, sched, config, actions, cb) ->
     issuer = "[#{id}] #{site}"      
     config.issuer = issuer
     actionObj = {
-      _ctx: ctx, _sched: sched,
+      _ctx: ctx, _sched: sched, opts,
       shared: ctx.shared, batch: ctx.batch, id, issuer,
       index: i, total, job: name, site: config, shell: shell(config),
       report: (msg) ->
