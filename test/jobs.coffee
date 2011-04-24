@@ -129,9 +129,9 @@ module.exports = {
        # then our action will have completed prematurely
        cb1 = @async()
        cb2 = @async()
-       that = this
-       setTimeout((that.report "timeout 1"; cb1()), 10)
-       setTimeout((that.report "timeout 2"; cb2()), 20)
+       action = this
+       setTimeout((action.report "timeout 1"; cb1()), 10)
+       setTimeout((action.report "timeout 2"; cb2()), 20)
     jobs.run 'async', log: true, -> @report "async done"
 
   asyncfail: ->
@@ -140,19 +140,18 @@ module.exports = {
        # each callback may receive an error
        cb1 = @async()
        cb2 = @async()
-       # we may use coffee-script binding instead of that
-       setTimeout((=> @report "timeout 1"; cb1()), 10)
-       setTimeout((=> @report "timeout 2"; cb2 "something bad happened"), 20)
+       action = this
+       setTimeout((-> action.report "timeout 1"; cb1()), 10)
+       setTimeout((-> action.report "timeout 2"; cb2 "something bad happened"), 20)
     jobs.run 'asyncfail', log: true, -> @report "async done with expected error"
 
   noasync: ->
     jobs = createJobs(loadSites())
     jobs.add 'noasync', 'example.com', ->
-       setTimeout((-> @report "timeout"), 10)
+       action = this
+       setTimeout((-> action.report "timeout"), 10)
     jobs.run 'noasync', log: true, -> @report "sync action done with async background job"
-}
-#deactivate above tests
-module.exports = {
+    
   shell: ->
     jobs = createJobs(loadSites())
     jobs.add 'putmsg', 'example.com', ->
