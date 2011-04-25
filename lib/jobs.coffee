@@ -341,7 +341,7 @@ class Jobs
     cb()
 
   # synonym for default run mode
-  run: (args...) -> @runSiteSequential.apply(this, args)
+  run: -> @runSiteSequential.apply(@, arguments)
 
   # Run all actions of all jobs in a parallel schedule.
   # `jobs` : job name or (nested) array of job names.
@@ -379,11 +379,11 @@ class Jobs
           for site, actions of siteactions
             actioncount += actions.length
             sites.push site if actions.length
-    pending += actioncount
     _reportSchedule(sched, _.uniq(sites), actioncount)
     while q.length
       siteactions = q.shift()
       for site, actions of siteactions
+        ++pending
         _runSiteActions jobname, sched, @sites.get(site), actions, cb
     cb()
 

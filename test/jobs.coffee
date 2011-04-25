@@ -230,11 +230,13 @@ module.exports = {
     jobs.add 'deploy', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.sitecount, @site.name
+      @report @site.name
 
     # add action to deploy job that only runs in the live role
     jobs.add 'deploy', 'live', ->
       # increment a counter for every site this action fires on
       util.addmap @shared.livecount, @site.name
+      @report @site.name
 
     # add a job named countertest to the test role.
     jobs.add 'countertest', ['test'], ->
@@ -267,7 +269,10 @@ module.exports = {
     opts2 = mkopts()
     opts3 = mkopts()
     
-    if true
+    #runs = ['site-seq'] # fails
+    runs = ['par', 'seq'] # succeeds
+    
+    if 'seq' in runs 
       
       # sequential seems to work
       ++expectchecks
@@ -277,34 +282,32 @@ module.exports = {
         opts.roles = 'foo.bar'
         jobs.run 'checkruns', opts, complete    
 
-    assert.ok false, "disabled some failing tests"
-    if false
+    if 'site-seq' in runs
       
       # site-sequential messes up what actions to run where
       # or at least messes up logging of the fact
       ++expectchecks
-      jobs.run ['deploy', 'countertest'], opts2, ->
+      jobs.runSiteSequential ['deploy', 'countertest'], opts2, ->
         opts2.roles = 'foo.bar'
-        jobs.runSiteSequential 'checkruns', opts2, complete    
+        jobs.run 'checkruns', opts2, complete    
 
-    if false
-      
-      # parallel fails to run first schedule if second is present
-      # ...?
+    if 'par' in runs
       ++expectchecks    
-      jobs.run ['deploy', 'countertest'], opts3, ->
-        # return
+      jobs.runParallel ['deploy', 'countertest'], opts3, ->
         opts3.roles = 'foo.bar'
-        jobs.runParallel 'checkruns', opts3, complete
+        jobs.run 'checkruns', opts3, complete
         
 
     setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 400)
+    
+    assert.equal runs.length, 3, "disabled some failing tests"
 
 }
 
-debug = false #'mixed'
+if process.env.jobstest
+  test = process.env.jobstest
 
-if debug
+if test
   x = module.exports
-  module.exports = { test: -> x[debug]() } if debug
+  module.exports = { test: -> x[test]() }
 
