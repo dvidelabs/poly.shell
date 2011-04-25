@@ -269,8 +269,7 @@ module.exports = {
     opts2 = mkopts()
     opts3 = mkopts()
     
-    #runs = ['site-seq'] # fails
-    runs = ['par', 'seq'] # succeeds
+    runs = ['par', 'seq', 'site-set']
     
     if 'seq' in runs 
       
@@ -283,7 +282,7 @@ module.exports = {
         jobs.run 'checkruns', opts, complete    
 
     if 'site-seq' in runs
-      
+
       # site-sequential messes up what actions to run where
       # or at least messes up logging of the fact
       ++expectchecks
@@ -298,7 +297,7 @@ module.exports = {
         jobs.run 'checkruns', opts3, complete
         
 
-    setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 400)
+    setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 600)
     
     assert.equal runs.length, 3, "disabled some failing tests"
 

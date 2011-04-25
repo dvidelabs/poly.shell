@@ -320,7 +320,7 @@ class Jobs
         for site, actions of siteactions
           actioncount += actions.length          
           # helper to bind current variable scope for callback
-          _jobrunner = (jobname, site, actions) ->
+          _jobrunner = (jobname, site, config, actions) ->
             _cb = (err) ->
               next = undefined
               unless err and opts.breakOnError
@@ -328,8 +328,8 @@ class Jobs
               if next then next() else cb err
             -> _runSiteActions jobname, sched, config, actions, _cb
           if actions.length
-            config = @sites.get(site)
-            util.pushmap actionmap, site, _jobrunner(jobname, site, actions)
+            config = @sites.get(site)            
+            util.pushmap actionmap, site, _jobrunner(jobname, site, config, actions)
     _reportSchedule(sched, _.keys(actionmap), actioncount)
     for site, actions of actionmap
       # call the head of each action chain in parallel
