@@ -224,7 +224,7 @@ module.exports = {
       else
         console.log "all jobs completed successfully"
       assert.isNull errors
-      assert.ok @shared.checkrunsDone
+      assert.ok @shared.checkrunsDone, "checkruns didn't run"
 
     # add a job named deploy in the deploy role
     jobs.add 'deploy', ->
@@ -269,7 +269,7 @@ module.exports = {
     opts2 = mkopts()
     opts3 = mkopts()
     
-    runs = ['par', 'seq', 'site-set']
+    runs = ['par', 'seq', 'site-set', 'chained']
     
     if 'seq' in runs 
       
@@ -290,16 +290,23 @@ module.exports = {
         opts2.roles = 'foo.bar'
         jobs.run 'checkruns', opts2, complete    
 
-    if 'par' in runs
-      ++expectchecks    
-      jobs.runParallel ['deploy', 'countertest'], opts3, ->
-        opts3.roles = 'foo.bar'
-        jobs.run 'checkruns', opts3, complete
+    if 'site-seq' in runs
+
+      # site-sequential messes up what actions to run where
+      # or at least messes up logging of the fact
+      ++expectchecks
+      jobs.runSiteSequential ['deploy', 'countertest'], opts2, ->
+        opts2.roles = 'foo.bar'
+        jobs.run 'checkruns', opts2, complete    
         
+    if 'chained' in runs
+      ++expectchecks    
+      jobs.run ['deploy', 'countertest'], opts3, ->
+        @run 'checkruns', { roles: 'foo.bar', desc: 'chained schedule, same batch' }, complete
 
     setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 600)
     
-    assert.equal runs.length, 3, "disabled some failing tests"
+    assert.equal runs.length, 4, "disabled some failing tests"
 
 }
 

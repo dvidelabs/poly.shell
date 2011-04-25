@@ -25,14 +25,17 @@ _debug = (msg, value) ->
 
 
 _reportSchedule = (sched, sites, actioncount) ->
-  unless sched.opts.log
-    return
-  roles = sched.opts.roles
+  opts = sched.opts
+  return unless opts.log
+  roles = opts.roles
   jobs = sched.jobs
   type = sched.type
   id = sched.id
-  name = if sched.opts.name then " (#{sched.opts.name})" else ""
-  headerln = "[#{id}] :#{name} scheduling #{type} jobs:\n"
+  name = if sched.opts.name then "#{opts.name}" else ""
+  desc = if sched.opts.desc then "- #{opts.desc}" else ""
+  if name and desc
+    desc = " " + desc
+  headerln = "[#{id}] : #{type} job schedule#{_fmtMsg name + desc}\n  jobs:\n"
   jobsln = _fmtLst jobs, true
   restrictln = ""
   if sites.length
@@ -45,58 +48,6 @@ _reportSchedule = (sched, sites, actioncount) ->
     restrictln = "  restricted to roles:\n    #{_.flatten([roles]).join(', ')}\n"
   console.log "#{headerln}#{jobsln}#{restrictln}#{matchln}#{siteln}"
 
-_prepareBatch = (type, jobs, opts_in, complete) ->
-  if typeof opts_in is 'function'
-    complete = opts_in
-    opts_in = null
-  complete ?= ->
-  ctx = @_ctx or {}
-  opts_in ?= {}
-  ctx.opts ?= {}
-  opts = _.clone _.extend(ctx.opts, opts_in)
-  unless ctx.batch
-    ctx.batch = util.uid(6)
-    ctx.starttime = new Date()
-    ctx.actioncount = 0
-    ctx.schedulecount = 0
-    ctx.shared = opts.shared ? {}
-    console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}" if opts.log
-  ++ctx.schedulecount
-  # ctx.opts carries over options for the next schedule,
-  # but are never used directly
-  
-  jobs = _.flatten([jobs])
-  name = if opts.name then " (#{opts.name})" else ""
-  issuer = "[#{ctx.batch}-#{ctx.schedulecount}] :#{name} #{type}"
-
-  sched = {
-    _ctx: ctx
-    report: (msg) ->
-      if opts.log or opts.report
-        console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
-    debug: (msg, value) ->
-      if opts.debug
-        value = if value then ":" + _fmtMsg sysutil.inspect value else ""
-        console.log "[DEBUG] #{issuer} : #{msg}#{value}"
-    shared: ctx.shared
-    batch: ctx.batch
-    name: opts.name
-    issuer
-    type
-    opts
-    jobs
-    index: ctx.schedulecount
-    id: "#{ctx.batch}-#{ctx.schedulecount}"
-    }
-  _complete = (args...) ->
-    complete.apply sched, args
-    if opts.log
-      errors = if args.length then args[0] else null
-      if opts.log or (errors and not opts.quiet)
-        emsg = if errors then "with #{errors} errors" else "successfully"
-        console.log "#{issuer} job schedule completed #{emsg}"
-  sched._complete = _complete
-  return sched
 
 # Run all job specific actions for a single site concurrently.
 _runSiteActions = (jobname, sched, config, actions, cb) ->
@@ -206,7 +157,63 @@ class Jobs
     throw new Error "job #{jobname} not found" unless sched.opts.allowMissingJob
     console.log "[#{sched.batch}] ignoring undefined job #{jobname}" if sched.opts.log
     return null
-  
+
+  _prepareBatch: (type, jobs, opts_in, complete) ->
+    if typeof opts_in is 'function'
+      complete = opts_in
+      opts_in = null
+    complete ?= ->
+    ctx = @_ctx or {}
+    opts_in ?= {}
+    ctx.opts ?= {}
+    opts = _.clone _.extend(ctx.opts, opts_in)
+    unless ctx.batch
+      ctx.batch = util.uid(6)
+      ctx.starttime = new Date()
+      ctx.actioncount = 0
+      ctx.schedulecount = 0
+      ctx.shared = opts.shared ? {}
+      console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}" if opts.log
+    ++ctx.schedulecount
+    # ctx.opts carries over options for the next schedule,
+    # but are never used directly
+
+    jobs = _.flatten([jobs])
+    name = if opts.name then " (#{opts.name})" else ""
+    issuer = "[#{ctx.batch}-#{ctx.schedulecount}] :#{name} #{type}"
+
+    sched = {
+      __proto__: this
+      _ctx: ctx
+      report: (msg) ->
+        if opts.log or opts.report
+          console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
+      debug: (msg, value) ->
+        if opts.debug
+          value = if value then ":" + _fmtMsg sysutil.inspect value else ""
+          console.log "[DEBUG] #{issuer} : #{msg}#{value}"
+      shared: ctx.shared
+      batch: ctx.batch
+      name: opts.name
+      issuer
+      type
+      opts
+      jobs
+      index: ctx.schedulecount
+      id: "#{ctx.batch}-#{ctx.schedulecount}"
+      }
+    # make it possible to run new schedules in same batch
+    
+    _complete = (args...) ->
+      if opts.log
+        errors = if args.length then args[0] else null
+        if opts.log or (errors and not opts.quiet)
+          emsg = if errors then "with #{errors} errors" else "successfully"
+          console.log "#{issuer} job schedule completed #{emsg}"
+      complete.apply sched, args
+    sched._complete = _complete
+    return sched
+
   
   # Adds actions to a new or existing named job.
   #
@@ -291,6 +298,8 @@ class Jobs
   # `opts.roles` : optional role filter to restrict number of affected sites.
   #    If `filter` is null or 'any', jobs will run on all sites
   #    they are defined for.
+  # `opts.name` : optional schedule name for logging
+  # `opts.desc` : optional schedule description for logging
   # `opts.breakOnError = true` terminates action sequence on a site that fails.
   # `opts.allowMissingJob = true` : allow missing jobs without throwing an exception.
   # `opts.report = true` : enable custom report output, even when opts.log disabled.
@@ -302,7 +311,7 @@ class Jobs
   # (More detailed control can be had by having actions communicate
   #  over the shared object provided in the action and schedule objects).
   runSiteSequential: (jobs, opts, complete) ->
-    sched = _prepareBatch('site-sequential', jobs, opts, complete)    
+    sched = @_prepareBatch('site-sequential', jobs, opts, complete)    
     jobs = sched.jobs
     actionmap = {}
     pending = 1
@@ -344,23 +353,9 @@ class Jobs
   run: -> @runSiteSequential.apply(@, arguments)
 
   # Run all actions of all jobs in a parallel schedule.
-  # `jobs` : job name or (nested) array of job names.
-  # `opts.roles` : restrict number of affected sites
-  #    (unless missing or 'any').
-  # `opts.breakOnError` has no effect since all
-  #    actions are started before we can detect errors.
-  # `opts.allowMissingJob = true` : ignore missing jobs.
-  #  missing options are inherited from containing schedules.
-  # `opts.report = true` : enable custom report output, even when opts.log disabled.
-  # `opts.debug = true` : enable custom debug output - independent of opts.log
-  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
-  # `complete` : called with null or error count
-  #    once all actions have completed.
-  #    complete is wrapped so it runs with a schedule object
-  #    as this pointer.
   # See also runSiteSequential.
   runParallel: (jobs, opts, complete) ->
-    sched = _prepareBatch('parallel', jobs, opts, complete)    
+    sched = @_prepareBatch('parallel', jobs, opts, complete)    
     jobs = sched.jobs
     pending = 1
     errors = 0
@@ -389,25 +384,9 @@ class Jobs
 
   # Run all jobs in a sequential schedule across all sites.
   # Actions within a single job still run concurrently.
-  #
-  # `jobs` : job name or (nested) array of job names.
-  # `opts.roles` : restrict number of affected sites
-  #   (unless missing or 'any').
-  # `opts.breakOnError = true` will terminate subsequent jobs
-  #   on all sites if a single site fails.
-  # `opts.allowMissingJob = true` : allow missing jobs without
-  #   throwing an exception.
-  #  missing options are inherited from containing schedules.
-  # `opts.report = true` : enable custom report output, even when opts.log disabled.
-  # `opts.debug = true` : enable custom debug output - independent of opts.log
-  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
-  # `complete` : called with error count once last job completes.
-  #    If opts.breakOnError == true, complete may be called earlier.
-  #    complete is wrapped so it runs with a schedule object
-  #    as this pointer.
   # See also runSiteSequential.
   runSequential: (jobs, opts, complete) ->
-    sched = _prepareBatch('sequential', jobs, opts, complete)
+    sched = @_prepareBatch('sequential', jobs, opts, complete)
     jobs = sched.jobs
     errors = 0
     q = []
