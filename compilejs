@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-coffee -c -o tmpjs/lib lib/*.coffee
-coffee -c -o tmpjs/test test/*.coffee

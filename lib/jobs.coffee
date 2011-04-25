@@ -147,7 +147,7 @@ class _Job
 # jobs function.
 class Jobs
 
-  constructor: (@sites) ->
+  constructor: (@sites = require('..').sites()) ->
 
     @_jobs = {}
 
@@ -218,47 +218,7 @@ class Jobs
   # Adds actions to a new or existing named job.
   #
   # If no role is given, the jobname is used as role.
-  #
-  # Roles are used to restrict the job to specific
-  # sites that match these roles.
-  # When the job is subsequently run, the job
-  # may be further restricted to a subset of roles.
-  #
-  # Roles cannot be added, only restricted, when
-  # running. However, sites may be added by including
-  # them in roles after a job has been created.
-  #
-  # When a job is added multiple times, each action
-  # is associated with those roles given when added
-  # to the job. In effect a job becomes a cluster
-  # of actions that run together, but not necessarily
-  # in the same place, but always at the same time.
-  #
-  # Actions allways run concurrently, regardless of the
-  # schedule used to run multiple jobs.
-  #
-  # example roles (arrays are flattened before use):
-  #  "www"
-  #  ["test", "deploy"]
-  #  ["db", ["test", "deploy"]]
-  #
-  # A site is a name that maps to configurations settings
-  # which typically include a host domain, a user,
-  # and a local path. A site may be local (no host domain),
-  # or remote. .ssh/config is typically used to map a host
-  # to a real remote host with ssh keys.
-  #
-  # An action is a function that receives options and a
-  # a callback. The callback must be called when the action
-  # is considered complete wrt. error handling and dependent
-  # actions, but the action may continue after that point.
-  # It is, however, vital that the callback is called exactly
-  # once.
   add: (name, roles, actions) ->
-    # extensive arguments checking:  so many cryptic things happen
-    # if actions are not actions and roles are not what they are
-    # thought to be.
-    
     if typeof name isnt 'string' or name.length < 1      
       throw new Error "Jobs.add : job name missing"
 
@@ -291,25 +251,6 @@ class Jobs
   # but may overlap on different sites.
   # In effect each site pulls the next job when ready,
   # and is normally what is desired.
-  #
-  # Multiple actions within a single job always run concurrently.
-  #
-  # `jobs` : job name or (nested) array of job names.
-  # `opts.roles` : optional role filter to restrict number of affected sites.
-  #    If `filter` is null or 'any', jobs will run on all sites
-  #    they are defined for.
-  # `opts.name` : optional schedule name for logging
-  # `opts.desc` : optional schedule description for logging
-  # `opts.breakOnError = true` terminates action sequence on a site that fails.
-  # `opts.allowMissingJob = true` : allow missing jobs without throwing an exception.
-  # `opts.report = true` : enable custom report output, even when opts.log disabled.
-  # `opts.debug = true` : enable custom debug output - independent of opts.log
-  # `opts.quiet = true` : suppress error messages, overriden by opts.log.
-  # `complete` : called with null or error count once all sites have completed.
-  #    complete is wrapped so it runs with a schedule object
-  #    as this pointer.
-  # (More detailed control can be had by having actions communicate
-  #  over the shared object provided in the action and schedule objects).
   runSiteSequential: (jobs, opts, complete) ->
     sched = @_prepareBatch('site-sequential', jobs, opts, complete)    
     jobs = sched.jobs
@@ -353,7 +294,6 @@ class Jobs
   run: -> @runSiteSequential.apply(@, arguments)
 
   # Run all actions of all jobs in a parallel schedule.
-  # See also runSiteSequential.
   runParallel: (jobs, opts, complete) ->
     sched = @_prepareBatch('parallel', jobs, opts, complete)    
     jobs = sched.jobs
@@ -384,7 +324,6 @@ class Jobs
 
   # Run all jobs in a sequential schedule across all sites.
   # Actions within a single job still run concurrently.
-  # See also runSiteSequential.
   runSequential: (jobs, opts, complete) ->
     sched = @_prepareBatch('sequential', jobs, opts, complete)
     jobs = sched.jobs
@@ -411,46 +350,5 @@ class Jobs
       _runSiteActions.apply null, w
     next()
 
-#   Schedule jobs across multiple sites:
-#
-#   (a sites collection is simply a rolebased environment container)
-#
-#   sites = require('<projectroot>').envs()
-#   jobs = require('<projectroot>').jobs(sites)
-#
-#   // example site exists in 3 roles: example, role1, testrole
-#
-#   sites.add('example', ['role1', 'testrole'], { host: 'example.com' });
-#   jobs.add('onlyforexample', 'example', [function (){}, function(){}]);
-#   jobs.add('example', function {
-#      // This is an action function with this pointer set to a job action
-#      // object with facilities like shell, report, etc.
-#      // Add a job named 'example' matching sites in role 'example' which
-#      // in this case is exactly the site named 'example',
-#      // which has the hostname 'example.com'
-#      // (which could be configured in your .shh/config file).
-#      // This action has a globally unique id and access to a remote shell:
-#      this.report("my id " + this.id + " should match the report log id");
-#      this.shell.run("ls /tmp | tail");
-#   });
-#   jobs.add('myjob', ['role1', 'role2'], function() { /* my action */ });
-#   jobs.add('testjob', 'testrole', function() {
-#     this.shell.run("echo hello " + this.site.name + "> " this.batch + ".log"); });
-#   // ...
-#   // run jobs with full log output
-#   jobs.run(['myjob', 'testjob'], { log: true }, function () {
-#      // this is a schedule object, not a job action object like above,
-#      // so no shell, but still a report facility amongst others.
-#     this.report("all jobs completed");
-#   });
-#   // only dump reporting and error messages
-#   jobs.run ['myjob', 'testjob'], { report: true }, function () { this.report("all jobs completed"); });
-#   // only dump error messages
-#   jobs.run ['myjob', 'testjob'], function () { /* all jobs completed */ }
-#   // don't even dump that
-#   jobs.run ['myjob', 'testjob'], { quiet: true }, function () { /* all jobs completed */ }
-#
-#   // jobs can be scheduled in different ways, and actions can acquire callbacks using this.async().
-#   See also Jobs class and test/jobs.
-#
+#   Create class to schedule jobs across multiple sites:
 exports.jobs = (sites) -> new Jobs(sites)

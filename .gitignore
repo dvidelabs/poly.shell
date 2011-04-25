@@ -1,4 +1,3 @@
-tmp
-test/tmp
 node_modules
-tmpjs
+gen-js
+tmp
