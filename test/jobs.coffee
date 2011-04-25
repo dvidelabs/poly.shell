@@ -214,10 +214,7 @@ module.exports = {
 
     jobs = createJobs(loadSites())
     assert.ok jobs.sites.get('foo.bar').log
-
-    shared = { sitecount: {}, livecount: {} }
-    opts = { log: true, shared, name: "parallel schedule" }
-
+    
     path = (env) -> env.path or "~/tmp"
     complete = (errors) ->
       # node.js convention is to return null when there are no
@@ -227,7 +224,7 @@ module.exports = {
       else
         console.log "all jobs completed successfully"
       assert.isNull errors
-      assert.ok shared.checkrunsDone
+      assert.ok @shared.checkrunsDone
 
     # add a job named deploy in the deploy role
     jobs.add 'deploy', ->
@@ -246,6 +243,9 @@ module.exports = {
 
     # add a job named checkruns in the roles 'test' and 'deploy'
     jobs.add 'checkruns', ['test', 'deploy'], ->
+      @report "checkruns running"
+      @debug "checkruns shared state", @shared
+      ++checks
       # only deploy
       assert.equal @shared.sitecount['example.com'], 1
       # test and deploy
@@ -253,13 +253,56 @@ module.exports = {
       @shared.checkrunsDone = true
       @report "running in roles #{opts.roles or "<all>"}"
 
-    assert.ok false, "checkruns is currently no running"
-    opts.roles = ['test', 'live']
-    jobs.runParallel ['deploy', 'countertest'], opts, ->
-      jobs.run 'checkruns', complete    
+    mkopts = -> { 
+      shared: { sitecount: {}, livecount: {} }
+      roles: ['test', 'live']
+      log: true
+      debug: true
+    }
+    
+    checks = 0
+    expectchecks = 0
+    
+    opts = mkopts()
+    opts2 = mkopts()
+    opts3 = mkopts()
+    
+    if true
+      
+      # sequential seems to work
+      ++expectchecks
+      jobs.runSequential ['deploy', 'countertest'], opts, ->
+        # only run the global check once, assign it to site foo.bar
+        # pass shared state to new schedule via opts.
+        opts.roles = 'foo.bar'
+        jobs.run 'checkruns', opts, complete    
+
+    assert.ok false, "disabled some failing tests"
+    if false
+      
+      # site-sequential messes up what actions to run where
+      # or at least messes up logging of the fact
+      ++expectchecks
+      jobs.run ['deploy', 'countertest'], opts2, ->
+        opts2.roles = 'foo.bar'
+        jobs.runSiteSequential 'checkruns', opts2, complete    
+
+    if false
+      
+      # parallel fails to run first schedule if second is present
+      # ...?
+      ++expectchecks    
+      jobs.run ['deploy', 'countertest'], opts3, ->
+        # return
+        opts3.roles = 'foo.bar'
+        jobs.runParallel 'checkruns', opts3, complete
+        
+
+    setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 400)
+
 }
 
-debug = 'mixed'
+debug = false #'mixed'
 
 if debug
   x = module.exports
