@@ -76,36 +76,65 @@ A very basic example:
 
     jobs = require('ploy').jobs();
 
-    jobs.sites.add('test', 'app-role', { host: 'example.com' });
+    jobs.sites.add('test', 'app-role', { host: 't1.example.com' });
+    jobs.sites.add('test2', 'app-role', { host: 't2.example.com' });
 
-    jobs.add 'hello', 'app-role', function() {
-      this.shell.run "touch hello.test"
-    }
+    jobs.add('init', 'app-role', function() {
+      this.shell.run("mkdir -p tmp");
+    });
+    
+    jobs.add('hello', 'app-role', function() {
+      this.shell.run("echo hello world > tmp/hello.test");
+    });
 
-    jobs.add 'world', 'app-role', function() {
-      this.shell.run "echo world > hello.test"
-    }
+    jobs.add('world', 'app-role', function() {
+      this.shell.run("cp tmp/hello.test tmp/world.test");
+    });
 
-    jobs.run ['hello', 'world']
+    jobs.run(['init', 'hello', 'world'], { log: true });
+
+      // run jobs on hosts t1.example.com and t2.example.com
+      // with logging enabled
 
 It is recommended to configure `~/.ssh/config` to point `example.com` to some
-real test server with appropriate keys.
+real test server with appropriate ssh keys.
 
-See `test/jobs.coffee`, `test`, `envs.coffee`, and the `examples` folder
+See also `test/jobs.coffee`, `test`, `envs.coffee`, and the `examples` folder
 for more inspiration.
 
 ### Passwords
 
-Ploy does not (as of this writing) support ssh password login. It is expected that
-ssh uses ssh keys without passwords, or with sshagent, or a similar password manager.
+Ploy does not (as of this writing) support ssh password login. It is assumed that
+ssh will use ssh keys without passwords, or with sshagent, or a similar password agent.
 
-Ploy does have a password manager for sudo passwords though. It is possible to
-configure multiple sites to share a single password cache such that when the
-first server asks for passwords, all other concurrent actions will hold,
-waiting for user input, and then proceed once the password has been entered
-once.
+Ploy does, however, have a password agent for sudo passwords. It is possible
+to configure multiple sites to share a single password cache such that when
+the first remote shell process asks for a password, all other concurrent
+actions will hold, waiting for user input, and then proceed once the password
+has been entered.
 
-TODO: details about how to configure password sharing and sudo behaviour.
+Two processes may race to ask for a password, in which case the user
+is prompted twice. Processes may also jam the about with noise making it difficult to
+enter a password. For these reasons, it is helpful to create a job specific to acquiring
+a password and the schedule other jobs after that.
+
+TODO: this is experimental: passwords may not interact correctly with the job controller
+as of this writing, but the general idea is:
+
+    ploy = require('ploy');
+    jobs = ploy.jobs();
+    sites = jobs.sites;
+    
+    sites.add('host1', { host: "h1.example.com" });
+    sites.add('host2', { host: "h2.example.com" });
+    
+    // now all current hosts in the hub-zero role will share passwords
+    sites.add(['host1', 'host2'], 'hub-zero', { 'password-agent': ploy.password.agent(); });
+    
+
+TODO: the jobs controller currently does not read the password-agent setting to initialise the
+shell accordingly.
+
 
 ## API
 
@@ -120,7 +149,7 @@ If no action is given, the job is made known but will not do anything. This
 will silence errors about missing jobs. Actions can be added by calling
 `jobs.add` again with the same name.
 
-`roles` are used to identify the sites that are allowed to run the job. When
+`roles` : used to identify the sites that are allowed to run the job. When
 the job is subsequently run, the job will either run on all sites, or on a
 subset given by the restricting roles passed to the `job.run` function.
 
@@ -134,13 +163,13 @@ Example roles (arrays are flattened before use):
     ["test", "deploy"]
     ["db", ["test", "deploy"], []]
 
-`actions` is an optional function or array of functions that all run in parallel
-on all sites that match the given role list.
+`actions` : an optional function or (nested) array of functions that all run
+in parallel on all sites that match the given role list.
 
-An action is a function does some work. By default it runs to completion or
-starts or things that it does not wait for, but it can request a callback
-function one or more times by calling the `this.async()` function.
-`this` points to an action object with several other useful features including
+An action is a function that does some work. By default it runs to completion
+or starts or things that it does not wait for, but it can request a callback
+function one or more times by calling the `this.async()` function. `this`
+points to an action object with several other useful features including
 `this.shell.run`:
 
     jabs.add('upload-web', 'web', function() {
@@ -187,6 +216,7 @@ Actions within a single job always run in parallel, regardless of the schedule
 used to run multiple jobs.
 
 ### jobs.runSiteSequential(jobs, [roles], [options], [callback])
+
 Run job or jobs in a site-sequential schedule where one job
 completes on a site before a new is started, but a new job can start
 on one site before it has finished on all other sites. `callback` is 
@@ -229,8 +259,6 @@ Multiple actions within a single job always run in parallel.
 all sites. complete is called with a schedule object as this pointer giving
 access to various functionality.
 
-TODO: It seems that we need a site specific callback also.
-
 options:
 
   - `options.roles` : optional role filter to restrict number of affected sites.
@@ -240,25 +268,189 @@ options:
   - `options.allowMissingJob` = true : allow missing jobs without throwing an exception.
   - `options.report` = true : enable custom report output, even when opts.log disabled.
   - `options.debug` = true : enable custom debug output - independent of opts.log
-  - `options.quiet` = true : suppress error messages, overriden by opts.log.
+  - `options.quiet` = true : suppress error messages, overridden by opts.log.
 
-### jobs.add ...
-TODO
+## Environments
 
-### jobs.sites.add ...
-TODO
+### envs()
+
+    envs = require('ploy').envs();
+
+Creates a generic role based environments collection useful for various
+purposes. See `sites()` for an example use of the `envs()` api.
+
+## Sites
+
 A site is a name that maps to configurations settings which typically include
-a host domain, a user, and a local path. A site may be local (no host domain),
-or remote. `.ssh/config` is typically used to map a host to a real remote host
-with ssh keys.
+a host domain, a user, and possibly a local path. A site may be local (no host
+domain), or remote. `.ssh/config` is typically used to map a host to a real
+remote host with ssh keys.
 
-...
+Note: here we focus on the actual api for managing sites. There are specific
+settings which are significant in specific contexts which will not be covered
+here, since a site can be used many ways.
 
-### jobs.sites.update ...
-TODO
+For the job controller `jobs()`, site configurations have two important
+purposes: one is to identify which sites a job will target by matching role
+names, and the other is to automatically initialise local and remote shells
+using settings in the site configuration object. The host setting is the most
+important: if present, .ssh/config can be used to provide access to the given
+host, and if absent, a local shell is assumed. See `Shell` and `jobs()` for
+more details.
 
-### jobs.sites.list ...
-TODO
+### `sites()`
+
+Creates a collection of environment objects indexed by name and organised
+by roles.
+
+    sites = require('ploy').sites();
+
+We use the term `site` loosely to reference a site name, the configuration
+object of a site, or the physical location represented by the name.
+
+Note: `sites()` creates a generic environments collection with role support.
+The environments collection can by used for a number of other purposes:
+
+    sites = require('ploy').sites();
+
+    // the above is equivalent to:
+
+    envs = require('ploy').envs();
+
+### sites.add(names, [roles], [config])
+
+
+    sites = require('ploy').sites()
+
+    sites.add 'example', 'test', { host: 'test.example.com' }
+    sites.add 'host1', { host: 'www1.example.com' }
+    sites.add 'host2', { host: 'www2.example.com' }
+    sites.add 'host1-admin', { host: 'www1.example.com', port: 8000, path: "sites/admin" }
+    sites.add 'local'
+
+Sites are always organised into roles. In the above example the sites are
+already added to the roles given by their own name. The `example` site is also
+added to the `test` role.
+
+We can add more roles later:
+
+    sites.add(['host1', 'host2'], ['www', 'deploy']);
+    sites.add(['host1-admin', 'local'], 'admin');
+
+`names` : a site name, or a (nested) array of sites names to be created or updated.
+It is valid to add to an existing site. (Nesting is just a convenience with no significance.)
+
+`roles` : optional role name or (nested) array of role names. (Nesting is  just a convenience
+with no significance.). sites are assigned to the listed roles if any. This makes it possible
+to reference a group of sites by a single name. A site always belong to a role with the same
+name as the site name to make it easy to target specific sites in functions that only
+accept role names.
+
+`config` : an optional configuration object (or environment if you like) that
+is applied to all to all listed sites. The config is **not** assigned to
+roles. Only those sites currently listed will receive the configuration. If a
+site already exists, the configuration object will be extended by adding new
+names to the old object, but entirely overwriting old data where the top-level
+names conflict. Configurations are always cloned so the input object will
+never be changed by modifying a site, and sites added simultaneously will have
+separate copies.
+
+A configuration object always has a property named 'name' which is identical to
+the site name. It cannot be overridden, but it can be changed after calling `sites.get()`.
+
+
+    sites = require('ploy').sites();
+
+    sites.add('foo', { name: "bar", x: "1" });
+    sites.get('foo');
+      // => { name: "foo", "x: "1" }
+
+    sites.add(['site1', 'site2'], { x: "1", y: "2" });
+    
+    sites.get('site1');
+      // => { name: "site1", x: "1", y: "2" }
+    sites.get('site2');
+      // => { name: "site2", x: "1", y: "2" }
+
+    sites.add('site2',
+      { z: 3, info: { tags: [ "test", "online" ], timeout: 4000 } });
+    
+    sites.get('site1')
+      // => { name: "site1", x: "1", y: "2" }
+    sites.get('site2')
+      // => { name: "site2", x: "1", y: "2", z: 3,
+      //      info: { tags: [ "test", "online" ], timeout: 4000 } }
+  
+    sites.add('site2', { info: { tags: [ "busy" ] } });
+    
+    sites.get('site1');
+      // => { name: "site1", x: "1", y: "2" }
+    sites.get('site2');
+      // => { name: "site2", x: "1", y: "2", z: 3, info: { tags: [ "busy" ] } }
+
+### sites.get(name)
+
+Returns a copy of the configuration currently stored for the named site, or null if
+the site is not present.
+
+`name` : name of site.
+
+    sites = require('ploy').sites()
+    
+    sites.add('ex', 'www', { host: "app.example.com" });
+    sites.get('ex');
+      // => { name: 'ex', x: "1", y: "2" }
+    sites.get('www');
+      // => null
+    sites.get('app.example.com');
+      // => null
+    sites.get(sites.list('www').shift());
+      // => { name: 'ex', x: "1", y: "2" }
+
+    Any changes to an object returned by get will not have any effect on the configuration stored
+    in the sites collection.
+
+### sites.list(roles, [filter])
+
+Returns an array of matching site names. The result can be an empty array, an array
+with one element, or a flat array with more elements. There will be no duplicate
+site names.
+
+`roles` : a role name or a (nested) array of role names. All sites existing in at least
+one of the roles will be returned. If `roles` is empty or null, an empty array is
+returned.
+
+`filter` : an optional role name or a (nested) array of role names similar to
+`roles`. If present a site must exist in both roles and filter in order to be
+include in the result set. The filter is used by the job controller to
+restrict the number of sites a job would normally target.
+
+### sites.update(inroles, [roles], [config])
+
+A shorthand for `sites.add(sites.list(inroles), roles, config);
+
+Updates all sites in the given `inroles` simulatanously, but will
+not create any new sites.
+
+### job.sites
+
+Sites are used by the job controller. The job controller automatically
+creates a sites collection if one is not being passed when the job controller
+is created:
+
+    jobs = require('ploy').jobs();
+    sites = jobs.sites;
+
+or, to share sites between different job controllers:
+
+    ploy = require('ploy');
+    sites = ploy.sites();
+    
+    jobs = ploy.jobs(sites);
+      // sites === jobs.sites
+      
+    jobs2 = ploy.jobs(sites);
+      // sites === jobs2.sites
 
 ## Actions
 TODO
