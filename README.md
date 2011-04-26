@@ -4,22 +4,30 @@
 Ploy is primarily intended to administer server clusters, but can can be used
 to schedule any kind of computational jobs.
 
-Typical scenarios are to install new software, monitor log files, upload new
-versions of web sites and verifying that backup jobs have run correctly.
+Typical scenarios are to install new software, to monitor log files, to upload
+new versions of web sites, and to verify that backup jobs have been completing
+successfully.
 
-The Capistrano and Vlad tools for Ruby on Rails are designed for this kind of
-jobs. Ploy is a lower level tool where Vlad like configurations are possible
-as extension modules.
+The Capistrano and Vlad tools for Ruby on Rails are designed for these kind of
+jobs. Ploy is a lower level tool but forms a good foundation for creating
+standard schedules such as deploying a new version of a web site pulled from
+the latest source control branch.
 
-The basic idea is to assign one or more roles to each server such that we
-can easily make the same configuration settings on multiple servers and also
-to easily assign specific jobs to multiple servers in one go.
+The basic idea is to run a sequence of named jobs in a single batch such that
+all jobs execute on all of their designated servers, concurrently, or in
+sequence as needed, and such that all jobs do not necessarily run on exactly the
+same servers.
 
-Ploy uses the concept of sites, where a site is seen as a physical location
-where a shell can run. One server, or host, can have multiple sites. In
-reality, a site is simply a configuration unit that can represent anything,
-but when using the built in shell support in Ploy jobs, it helps to think of
-sites as something with an ssh shell, or with a local shell.
+Apart from built-in sequencing, running jobs can communicate and coordinate
+through a batch specific shared global object, but the details are left to the user.
+
+Sites are used to define a logical unit of configuration such that a physical
+host can represent multiple sites - for example if a host both operates a
+database and two different web domains.
+
+Roles are used to name groups of sites in a server cluster. This makes it easy to
+assign jobs to specific sites, and also to configure multiple sites consistently
+with common settings.
 
 ## Installation
 
@@ -47,6 +55,60 @@ a javascript only module can be created in sub-folder using:
 
     make js
 
+## Getting Started
+
+A basic example running multiple shells on two sites; here two different locations
+on the same host to simplify the setup.
+
+Configure `.ssh/config` to point `example.com` to a real test server. You can
+also remove the 'host: 'example.com' setting altogether to run on your local
+system, or remove the host setting altogether to run in a local shell:
+
+    jobs = require('..').jobs();
+
+    jobs.sites.add('test', 'app-role', { host: 'example.com', testpath: 'tmp/jobstest/t1' });
+    jobs.sites.add('test2', 'app-role', { host: 'example.com', testpath: 'tmp/jobstest/t2' });
+
+    jobs.add('init', 'app-role', function() {
+      this.shell.run("mkdir -p " + this.site.path, this.async());
+      // Broadcast test file location to other jobs on the same site:
+      this.shared[this.site.name] = { testfile: this.site.path + "/hello.test" };
+    });
+
+    jobs.add('hello', 'app-role', function() {
+      this.shell.run("echo hello world > "
+        + this.shared[this.site.name].testfile, this.async());
+    });
+
+    jobs.add('world', 'app-role', function() {
+      this.shell.run([
+        "echo grettings from: " + this.site.name + "running on host: " + this.site.host,
+        "cat " + this.shared[this.site.name].testfile
+      ]);
+      this.report("message delivered");
+    });
+
+    // Run batch with logging enabled:
+    jobs.run(['init', 'hello', 'world'], { log: true });
+
+`this.shared` is an empty global object that can be seen by all jobs running
+in the same batch. The init job sets up a site specific testfile in this
+space.
+
+By default, jobs run in site-sequential mode. This means that on each site, one
+job completes before the next is started, but jobs on different sites run in
+parallel. Other schedules available such as `jobs.runParallel`.
+
+Notice that we do not explicitly pass a callback to each function given to
+`jobs.add`. For example, the world job does not need a callback and we could
+easily forget to call it if given as argument. Instead we acquire a callback
+with the function `this.async()` when one is needed. This makes it simpler to
+write simple actions. This model also makes it possible acquire multiple callbacks
+so we can wait on both a shell and a database call, for example.
+
+See also `test/jobs.coffee`, `test`, `envs.coffee`, and the `examples` folder
+for more inspiration.
+
 ## Scheduling
 
 The Ploy job control scheduler is fairly simple. A schedule is an array of job
@@ -69,38 +131,6 @@ scheduling algorithm. This means that Ploy jobs can take of in parallel attach
 to some locks and wait for things to get done so they can proceed. Ploy does
 not directly provide such locking primitives, but they would be an obvious
 extension module.
-
-## Usage
-
-A very basic example:
-
-    jobs = require('ploy').jobs();
-
-    jobs.sites.add('test', 'app-role', { host: 't1.example.com' });
-    jobs.sites.add('test2', 'app-role', { host: 't2.example.com' });
-
-    jobs.add('init', 'app-role', function() {
-      this.shell.run("mkdir -p tmp");
-    });
-    
-    jobs.add('hello', 'app-role', function() {
-      this.shell.run("echo hello world > tmp/hello.test");
-    });
-
-    jobs.add('world', 'app-role', function() {
-      this.shell.run("cp tmp/hello.test tmp/world.test");
-    });
-
-    jobs.run(['init', 'hello', 'world'], { log: true });
-
-      // run jobs on hosts t1.example.com and t2.example.com
-      // with logging enabled
-
-It is recommended to configure `~/.ssh/config` to point `example.com` to some
-real test server with appropriate ssh keys.
-
-See also `test/jobs.coffee`, `test`, `envs.coffee`, and the `examples` folder
-for more inspiration.
 
 ### Passwords
 
