@@ -947,7 +947,7 @@ entry. Issues the error text 'SIGNINT' if the user types 'ctrl+C' and should
 normally be used to issue a process.kill(process.pid). Otherwise similar to
 setPassword.
 
-### shell.sudo(cmd, [callback(err)]
+### shell.sudo(cmd, [callback(err)])
 
 Will detect a sudo password prompt using a globally unique prompt name and
 replace that prompt with 'Password:' and display it the user. If there is a
