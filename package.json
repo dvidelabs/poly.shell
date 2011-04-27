@@ -1,7 +1,7 @@
 {
   "name": "ploy",
   "main": "lib/index.js",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Mikkel Fahnøe Jørgensen <mikkel@dvide.com>",
   "description": "distributed job control and deployment framework",
   "engines": {
