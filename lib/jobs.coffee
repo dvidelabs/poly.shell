@@ -25,14 +25,14 @@ _debug = (msg, value) ->
 
 
 _reportSchedule = (sched, sites, actioncount) ->
-  opts = sched.opts
-  return unless opts.log
-  roles = opts.roles
+  options = sched.options
+  return unless options.log
+  roles = options.roles
   jobs = sched.jobs
   type = sched.type
   id = sched.id
-  name = if sched.opts.name then "#{opts.name}" else ""
-  desc = if sched.opts.desc then "- #{opts.desc}" else ""
+  name = if sched.options.name then "#{options.name}" else ""
+  desc = if sched.options.desc then "- #{options.desc}" else ""
   if name and desc
     desc = " " + desc
   headerln = "[#{id}] : #{type} job schedule#{_fmtMsg name + desc}\n  jobs:\n"
@@ -51,10 +51,10 @@ _reportSchedule = (sched, sites, actioncount) ->
 
 # Run all job specific actions for a single site concurrently.
 _runSiteActions = (jobname, sched, config, actions, cb) ->
-  opts = sched.opts
+  options = sched.options
   site = config.name
-  config.log = opts.log
-  config.quiet = opts.quiet
+  config.log = options.log
+  config.quiet = options.quiet
   n = actions.length
   return cb null, site unless n
   i = 0
@@ -68,19 +68,20 @@ _runSiteActions = (jobname, sched, config, actions, cb) ->
     e = null
     ctx = sched._ctx
     ++ctx.actioncount
-    id = "#{ctx.batch}-#{sched.index}-#{ctx.actioncount}"
+    id = "#{ctx.batchid}-#{sched.index}-#{ctx.actioncount}"
     issuer = "[#{id}] #{site}"      
     config.issuer = issuer
     actionObj = {
-      _ctx: ctx, _sched: sched, opts,
-      shared: ctx.shared, batch: ctx.batch, id, issuer,
-      index: i, total, job: name, site: config, shell: shell(config),
+      _ctx: ctx, _sched: sched, options : options,
+      shared: ctx.shared, batchid: ctx.batchid, id, issuer,
+      #index: ctx.actioncount
+      fragment: i, fragments: total, jobname: name, site: config, shell: shell(config),
       report: (msg) ->
-        if opts.log or opts.report
+        if options.log or options.report
           state = if n then "" else " (background)"
           console.log "#{issuer} :#{state} reporting: #{_fmtMsg(msg)}"
       debug: (msg, value) ->
-        if opts.debug
+        if options.debug
           value = if value then ":" + _fmtMsg sysutil.inspect value else ""
           console.log "[DEBUG] #{issuer} : #{msg}#{value}"
     }
@@ -94,14 +95,14 @@ _runSiteActions = (jobname, sched, config, actions, cb) ->
       if err
         e ?= []
         e.push err
-        console.log  "#{issuer} : failed job: #{name} with error:#{_fmtMsg(err)}" if opts.log or not opts.quiet
+        console.log  "#{issuer} : failed job: #{name} with error:#{_fmtMsg(err)}" if options.log or not options.quiet
       else
-        console.log  "#{issuer} : completed job: #{name}" if opts.log
+        console.log  "#{issuer} : completed job: #{name}" if options.log
       cb(e, actionObj) unless --n
     actionObj.async = () -> ++n; _cb
     actionObj.fail = (err) -> ++n; _cb(err)
-    console.log  "#{issuer} : starting job: #{name}" if opts.log
-    config.log = opts.log
+    console.log  "#{issuer} : starting job: #{name}" if options.log
+    config.log = options.log
     config.issuer = issuer
     action.call actionObj
     # call the cb for action to simplify simple actions
@@ -154,60 +155,60 @@ class Jobs
   _findJob: (sched, jobname) ->
     if job = @_jobs[jobname]
       return job
-    throw new Error "job #{jobname} not found" unless sched.opts.allowMissingJob
-    console.log "[#{sched.batch}] ignoring undefined job #{jobname}" if sched.opts.log
+    throw new Error "job #{jobname} not found" unless sched.options.allowMissingJob
+    console.log "[#{sched.batchid}] ignoring undefined job #{jobname}" if sched.options.log
     return null
 
-  _prepareBatch: (type, jobs, opts_in, complete) ->
-    if typeof opts_in is 'function'
-      complete = opts_in
-      opts_in = null
+  _prepareBatch: (type, jobs, options_in, complete) ->
+    if typeof options_in is 'function'
+      complete = options_in
+      options_in = null
     complete ?= ->
     ctx = @_ctx or {}
-    opts_in ?= {}
-    ctx.opts ?= {}
-    opts = _.clone _.extend(ctx.opts, opts_in)
-    unless ctx.batch
-      ctx.batch = util.uid(6)
+    options_in ?= {}
+    ctx.options ?= {}
+    options = _.clone _.extend(ctx.options, options_in)
+    unless ctx.batchid
+      ctx.batchid = util.uid(6)
       ctx.starttime = new Date()
       ctx.actioncount = 0
       ctx.schedulecount = 0
-      ctx.shared = opts.shared ? {}
-      console.log "[#{ctx.batch}] starting new batch; #{ctx.starttime}" if opts.log
+      ctx.shared = options.shared ? {}
+      console.log "[#{ctx.batchid}] starting new batch; #{ctx.starttime}" if options.log
     ++ctx.schedulecount
-    # ctx.opts carries over options for the next schedule,
+    # ctx.options carries over options for the next schedule,
     # but are never used directly
 
     jobs = _.flatten([jobs])
-    name = if opts.name then " (#{opts.name})" else ""
-    issuer = "[#{ctx.batch}-#{ctx.schedulecount}] :#{name} #{type}"
+    name = if options.name then " (#{options.name})" else ""
+    issuer = "[#{ctx.batchid}-#{ctx.schedulecount}] :#{name} #{type}"
 
     sched = {
       __proto__: this
       _ctx: ctx
       report: (msg) ->
-        if opts.log or opts.report
+        if options.log or options.report
           console.log "#{issuer} job schedule completion : reporting:#{_fmtMsg(msg)}"
       debug: (msg, value) ->
-        if opts.debug
+        if options.debug
           value = if value then ":" + _fmtMsg sysutil.inspect value else ""
           console.log "[DEBUG] #{issuer} : #{msg}#{value}"
       shared: ctx.shared
-      batch: ctx.batch
-      name: opts.name
+      batchid: ctx.batchid
+      name: options.name
       issuer
       type
-      opts
+      options: options
       jobs
       index: ctx.schedulecount
-      id: "#{ctx.batch}-#{ctx.schedulecount}"
+      id: "#{ctx.batchid}-#{ctx.schedulecount}"
       }
     # make it possible to run new schedules in same batch
     
     _complete = (args...) ->
-      if opts.log
+      if options.log
         errors = if args.length then args[0] else null
-        if opts.log or (errors and not opts.quiet)
+        if options.log or (errors and not options.quiet)
           emsg = if errors then "with #{errors} errors" else "successfully"
           console.log "#{issuer} job schedule completed #{emsg}"
       complete.apply sched, args
@@ -251,14 +252,14 @@ class Jobs
   # but may overlap on different sites.
   # In effect each site pulls the next job when ready,
   # and is normally what is desired.
-  runSiteSequential: (jobs, opts, complete) ->
-    sched = @_prepareBatch('site-sequential', jobs, opts, complete)    
+  runSiteSequential: (jobs, options, complete) ->
+    sched = @_prepareBatch('site-sequential', jobs, options, complete)    
     jobs = sched.jobs
     actionmap = {}
     pending = 1
     errors = 0
-    roles = sched.opts.roles
-    opts = sched.opts
+    roles = sched.options.roles
+    options = sched.options
     actioncount = 0
     cb = (err) ->
       throw new Error "internal schedule error" if pending <= 0
@@ -273,7 +274,7 @@ class Jobs
           _jobrunner = (jobname, site, config, actions) ->
             _cb = (err) ->
               next = undefined
-              unless err and opts.breakOnError
+              unless err and options.breakOnError
                 next = actionmap[site].shift()
               if next then next() else cb err
             -> _runSiteActions jobname, sched, config, actions, _cb
@@ -294,8 +295,8 @@ class Jobs
   run: -> @runSiteSequential.apply(@, arguments)
 
   # Run all actions of all jobs in a parallel schedule.
-  runParallel: (jobs, opts, complete) ->
-    sched = @_prepareBatch('parallel', jobs, opts, complete)    
+  runParallel: (jobs, options, complete) ->
+    sched = @_prepareBatch('parallel', jobs, options, complete)    
     jobs = sched.jobs
     pending = 1
     errors = 0
@@ -308,9 +309,9 @@ class Jobs
     actioncount = 0
     for jobname in jobs
       if job = @_findJob sched, jobname
-        siteactions = job.siteActions(sched.opts.roles)
+        siteactions = job.siteActions(sched.options.roles)
         q.push siteactions
-        if sched.opts.log
+        if sched.options.log
           for site, actions of siteactions
             actioncount += actions.length
             sites.push site if actions.length
@@ -324,8 +325,8 @@ class Jobs
 
   # Run all jobs in a sequential schedule across all sites.
   # Actions within a single job still run concurrently.
-  runSequential: (jobs, opts, complete) ->
-    sched = @_prepareBatch('sequential', jobs, opts, complete)
+  runSequential: (jobs, options, complete) ->
+    sched = @_prepareBatch('sequential', jobs, options, complete)
     jobs = sched.jobs
     errors = 0
     q = []
@@ -333,7 +334,7 @@ class Jobs
     actioncount = 0
     for jobname in jobs
       if job = @_findJob sched, jobname
-        siteactions = job.siteActions(sched.opts.roles)
+        siteactions = job.siteActions(sched.options.roles)
         for site, actions of siteactions
           sites.push site
           actioncount += actions.length
@@ -344,7 +345,7 @@ class Jobs
       # because we injecting a context in the callbacks
       ++errors if err
       w = q.shift()
-      if not w or (errors and sched.opts.breakOnError)
+      if not w or (errors and sched.options.breakOnError)
         return sched._complete errors or null
       w.push next
       _runSiteActions.apply null, w

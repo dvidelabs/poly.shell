@@ -144,7 +144,7 @@ module.exports = {
       # batch is a common identifier used in reporting
       # the action id is a counter extension to the batch identifier,
       # unique for this action
-      assert.equal 0, @id.indexOf(@batch + "-")
+      assert.equal 0, @id.indexOf(@batchid + "-")
       @report "Testing the reporting\nfacitlity.\nThere can be multiple\nlines."
       # the id is suitable for tmp files unique for this action, across all sites.
       @shell.run "mkdir -p tmp && echo hello > tmp/#{@id}.log"

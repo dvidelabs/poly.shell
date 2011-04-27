@@ -303,7 +303,7 @@ otherwise). Multiple schedules can be chained by starting new schedules with
 `this.run` in the callback, or by using one of the related run functions.
 
 Chained schedules run in the same batch. `this.shared` provide access to a batch global
-shared state in all action functions and all schedule callbacks. `this.batch` provides
+shared state in all action functions and all schedule callbacks. `this.batchid` provides
 access to the globally unique batch identifier. All actions and schedules have unique
 identifiers prefixed by the batch identifier. The identifiers are used extensively in
 logging, and are also useful for creating temporary files.
@@ -327,14 +327,37 @@ the schedule object given by the `this` pointer in the callback.
 
 options:
 
-  - `options.roles` : optional role filter to restrict number of affected sites.
-  - `options.name` : optional schedule name for logging
-  - `options.desc` : optional schedule description for logging
-  - `options.breakOnError` = true : terminates action sequence on a site that fails.
-  - `options.allowMissingJob` = true : allow missing jobs without throwing an exception.
-  - `options.report` = true : enable custom report output, even when opts.log disabled.
-  - `options.debug` = true : enable custom debug output - independent of opts.log
-  - `options.quiet` = true : suppress error messages, overridden by opts.log.
+  - `options.roles` :
+  
+      optional role filter to restrict number of affected sites.
+      
+  - `options.name` :
+  
+      optional schedule name for logging
+      
+  - `options.desc` :
+  
+      optional schedule description for logging
+      
+  - `options.breakOnError` = true :
+  
+      terminates action sequence on a site that fails.
+      
+  - `options.allowMissingJob` = true :
+  
+      allow missing jobs without throwing an exception.
+      
+  - `options.report` = true :
+  
+      enable custom report output, even when opts.log disabled.
+      
+  - `options.debug` = true :
+  
+      enable custom debug output - independent of opts.log
+      
+  - `options.quiet` = true :
+  
+      suppress error messages, overridden by opts.log.
 
 ## Environments
 
@@ -535,20 +558,6 @@ which serves the dual purpose of synchronising schedules and passing
 information from previous schedules. Options like `roles`, `log` etc. are
 inherited, but new options can be given to the `this.run` function.
 
-### Action chaining
-
-NOT SUPPORTED (but please tell how it goes): inside actions, it should be
-possible to start chained schedules using `this.schedule.run`, but this has
-not been tested. Clearly this will start a schedule before another schedule
-has completed, and it may potentially start the schedule many times over since
-actions are distributed to multiple sites - however, with some bookkeeping it
-might be doable. One option could be to restrict schedules to the current site
-name when run inside actions, another option 
-
-Note that `jobs.run` can be called in a schedule callback which will provide
-synchronisation, but will also start a new batch with separate state unlike
-`this.run`.
-
 ### Batch
 
 A batch is a context shared across chained schedules and allow chained
@@ -561,29 +570,55 @@ schedules, and all job actions in these schedules.
 The schedule object (the this pointer in a `jobs.run` callback) has the
 following methods and properties:
 
-TODO:
+**Properties**
 
-  - `this.opts` should be implemented as `this.options`, like documented below.
+  - `this.batchid` :
+  
+      a globally unique batch identifier string used to prefix all other identifiers.
+      
+  - `this.id` :
+  
+      a globally unique starting with batch id followed by a the schedule index separated by a dash.
+      
+  - `this.index` :
+  
+      the schedule index of this batch, starting with 1.
+      
+  - `this.issuer` :
+  
+      the prefix used for logging messages, which include the schedule id.
+      
+  - `this.jobs` :
+  
+      the flattened array of job names executing in this schedule, possibly with duplicates.
+      
+  - `this.name` :
+  
+      an optional schedule name from the schedule options for logging.
+      
+  - `this.options` :
+  
+      the options passed to `jobs.run` or `this.run`, and anything inherited from the batch.
+      
+  - `this.shared` :
+  
+      access to the batch global shared object for customised information sharing.
+        
+  - `this.type` :
+  
+      the schedule type, currently one of [`sequential`, `parallel`, `site-sequential`]
 
-Properties:
+**Methods**
 
-  - `this.batch` : a globally unique batch identifier string used to prefix all other identifiers.
-  - `this.id` : a globally unique starting with batch id followed by a the schedule index separated by a dash.
-  - `this.index` : the schedule index of this batch, starting with 1.
-  - `this.issuer` : the prefix used for logging messages, which include the schedule id.
-  - `this.jobs` : the flattened array of job names executing in this schedule, possibly with duplicates.
-  - `this.name` : an optional schedule name from the schedule options for logging.
-  - `this.options` : the options passed to `jobs.run` or `this.run`, and anything inherited from the batch.
-  - `this.shared` : access to the batch global shared object for customised information sharing.
-  - `this.type` : the schedule type, currently one of ['sequential', 'parallel', 'site-sequential']
+  - `this.report(msg)` :
+  
+      customised logging when `log` or `report` options are true for the schedule.
+      
+  - `this.debug(msg, [value])` :
+  
+      debug message and optional object inspection dump when `options.debug` is true.
 
-Methods:
-
-  - `report(msg)` : customised logging when `log` or `report` options are true for the schedule.
-  - `debug: (msg, [value])` : debug message and optional object inspection dump
-    when `options.debug` is true.
-
-The schedule object also has the following chaining methods:
+**Chaining methods**
 
   - `this.run`
   - `this.runSiteSequential`
@@ -600,9 +635,9 @@ using the `job.add` method:
 
     jobs = require('ploy').jobs();
 
-    jobs.add 'rollback', function() {
-      this.report "this function is the rollback action"
-    }
+    jobs.add('rollback', function() {
+      this.report("this function is the rollback action");
+    });
 
 A job can have multiple actions in different roles. This can, for example, be
 used to add OS specific actions:
@@ -649,7 +684,7 @@ actions in the same job will have different identifiers. The same action on
 different sites will have different identifiers. The same action on the same
 site in two different job invocations will have different identifiers.
 
-To get some less unique identifiers, a combination of `this.batch`,
+To get some less unique identifiers, a combination of `this.batchid`,
 `this.site.name` and `this.job` may provide the necessary means for
 communication across actions in, for example, the file system, a database, or
 in the `this.shared` object.
@@ -663,65 +698,90 @@ on this site... Custom logging with identifier tag is available through the
 The object referenced by `this` inside actions is called the action object, and has
 the following methods and properties:
 
-TODO: Changes needed on source code (documentation is correct, in principle).
+**Properties**
 
-  - `this.index`should be `this.fragment.
-  - `this.total` should be `this.fragments.
-  - `this.index` should be implemented as `_ctx.actioncount` (like documented below).
-  - `this.opts` should be `this.options`.
-  - `this.sched` should be `this.schedule`.
+  - `this.batchid` :
+  
+      a globally unique identifier for this batch, used to prefix action id.
+      
+  - `this.fragment` :
+  
+      a number between 1 and `total`. The same action may have different fragment
+      numbers on different invocations, but it is unique for the current job
+      invocation on the current site.
+      Logging use (this.fragment/this.fragments) in job start msg if total > 1.
+      
+  - `this.fragments` :
+  
+      total number of actions (fragments) running in this job invocation on this site.
+      
+  - `this.id` :
+  
+      a globally unique action invocation id, prefixed by batch id and schedule index.
+      
+  - `this.issuer` :
+  
+      the prefix used for logging, including the `id`.
+      
+  - `this.index` :
+  
+      the action invocation index of this batch, starting with 1.
+      
+  - `this.jobname` :
+  
+      name of the currently executing jobs (but not which invocation within the schedule).
+      
+  - `this.options` :
+  
+      direct and inherited schedule options.
+      
+  - `this.shared` :
+  
+      a batch global shared object for customised information sharing.
+      
+  - `this.shell` :
+  
+      the shell object configured with data from site config and
+      schedule options such as `options.log`. Run local or remote shells using `this.shell.run`.
+      See also `Shell`.
+      
+  - `this.site` :
+  
+      the site configuration object, for example `this.site.name`.
 
-**Properties:**
+**Methods**
 
-  - `this.batch` : a globally unique identifier for this batch, used to prefix action id.
-  - `this.fragment` : a number between 1 and `total`. The same action may have different fragment
-    numbers on different invocations, but it is unique for the current job
-    invocation on the current site.
-    Logging use (this.fragment/this.fragments) in job start msg if total > 1.
-  - `this.fragments` : total number of actions (fragments) running in this job invocation on this site.
-  - `this.id` : a globally unique action invocation id, prefixed by batch id and schedule index.
-  - `this.issuer` : the prefix used for logging, including the `id`.
-  - `this.index` : the action invocation index of this batch, starting with 1.
-  - `this.job` : name of the currently executing jobs (but not which invocation within the schedule).
-  - `this.options` : direct and inherited schedule options. 
-  - `this.schedule` : a reference to the current schedule object, for example `this.sched.id`.
-  - `this.shared` : a batch global shared object for customised information sharing.
-  - `this.shell` : the shell object configured with data from site config and
-    schedule options such as `options.log`. Run local or remote shells using `this.shell.run`.
-    See also `Shell`.
-  - `this.site` : the site configuration object, for example `this.site.name`.
+  - `this.debug: (msg, [value])` :
+  
+      debug message and optional object inspection dump when `debug` option is true.
+      
+  - `this.report(msg)` :
+  
+      customised logging when `log` or `report` options are true for the schedule.
 
-**Methods:**
+**Flow and Error Control**
 
-  - `this.debug: (msg, [value])` : debug message and optional object inspection dump when `debug` option is true.
-  - `this.report(msg)` : customised logging when `log` or `report` options are true for the schedule.
-
-**Flow and Error Control:**
-
-  - 'this.async()' : call "callback = `this.async()`" (while `this` is still valid!!) to get
-    a callback function that **must** must be called once with null or an error.
-    The callback can, for example be passed to `this.shell.run(cmd, callback) to prevent the
-    action from completing before the shell does.
-    `async()` can be called multiple times, each returned callback must be called once, for example
-    to capture completion of concurrent shell executions.
-    `async` must not be called again after the last returned callback has been called and the
-    action has returned.
-  - 'this.fail(err) : report an error without allocating a callback. `fail` may also be called with null.
-    `fail` should not be called after the action has returned.
-
+  - `this.async()` :
+  
+      acquires a callback function: "callback = `this.async()`" that can be
+      called by asynchronous functions, for example `this.shell.run(cmd,
+      callback)`. `async()` may be called multiple times to coordinate multiple
+      async methods in the action. Each acquired callback **must** be called
+      exactly once, either with null or an error. `this.async()` must not be
+      called after the action has returned unless there are uncalled callbacks
+      acquired by other calls to `this.async()` with the same `this` reference.
+   
+  - `this.fail(err)` :
+   
+      report an error for synchronous actions that do not need a callback.
+      Can be called with null which has no effect. Synchronous method may, as an
+      alternative, acquire a callback with `this.async()` and call the returned
+      callback with an error code. `fail` is simply shorthand for this.
 
 If a callback from `async()` has been called with an error, or fail has been
 called at least once with an error, the action will fail. Depending on
 schedule `options.breakOnError` this may stop the schedule prematurely, but
 concurrent actions will not stop.
-
-**Chaining:**
-
-TODO:
-
-  - `this.schedule.run` : (and friends, see `Schedule`)
-     - in theory, chained schedules can also start inside actions,
-      but this has not been tested. See also Schedule Chaining.
 
 ## Shell
 
@@ -738,7 +798,7 @@ logging is enabled it will be set in the shell also, and the shell name is not
 the site name but `this.issuer` which is a longer unique id including the site
 name for better logging consistency.
 
-See also sudo operation below. This also apply when running shells under job
+See also `sudo` operation below. This also apply when running shells under job
 control.
 
 ### Standalone Shell usage
@@ -903,17 +963,43 @@ options.
 
 `options`:
 
-  - `options.args` : (a string or array of strings), optional extra arguments to ssh before the command to execute
-    (these arguments are for ssh, not the command being run by ssh).
-  - `options.issuer` : optional name used for logging, overrides `host` and `name` for this purpose. Set by job
-     control when creating a shell for a job action with the actions `this.issuer` property.
-  - `options.log` : optional true to enable logging (set by job controls log setting for job action shells).
-  - `options.name` : optional informative system name used for logging (not a user name for remote login).
-  - `options.passwordCache` : enables sharing of passwords between multiple shells - see `Password Agents`.
-  - `opts.port` : integer port number for ssh if not the standard port 22 (can also be set in `.ssh/config`).
-  - `options.sh` : optional name for the shell to use instead of the environment SHELL variable.
-  - `options.ssh` : optional alternative ssh command to use for remote access.
-  - `options.user` : optional user name for ssh (can also be set in `.ssh/config`)
+  - `options.args` :
+  
+      (a string or array of strings), optional extra arguments to ssh before the command to execute
+      (these arguments are for ssh, not the command being run by ssh).
+    
+  - `options.issuer` :
+  
+      optional name used for logging, overrides `host` and `name` for this purpose. Set by job
+      control when creating a shell for a job action with the actions `this.issuer` property.
+     
+  - `options.log` :
+  
+      optional true to enable logging (set by job controls log setting for job action shells).
+    
+  - `options.name` :
+  
+      optional informative system name used for logging (not a user name for remote login).
+    
+  - `options.passwordCache` :
+  
+      enables sharing of passwords between multiple shells - see `Password Agents`.
+    
+  - `options.port` :
+  
+      integer port number for ssh if not the standard port 22 (can also be set in `.ssh/config`).
+    
+  - `options.sh` :
+  
+      optional name for the shell to use instead of the environment SHELL variable.
+    
+  - `options.ssh` :
+  
+      optional alternative ssh command to use for remote access.
+    
+  - `options.user` :
+  
+      optional user name for ssh (can also be set in `.ssh/config`).
 
 ### shell.run(cmd, [callback(err)]
 
