@@ -32,10 +32,6 @@ with common settings.
 
 - Implement and document `jobs.password(roles, [password])`.
   Cleanup password documentation accordingly.
-- Document runAtomic.
-- BUG: runSequential and runSiteSequential fails test/jobs.coffee mixed test.
-- Remove all run variants other than `jobs.run` and `this.run`,
-  and replace them with `option.type` option to `jobs.run`.
 - Remove need for schedule internal use of __proto__
 - Implement Splat, the Vlad copy cat.
 - Add license file.
