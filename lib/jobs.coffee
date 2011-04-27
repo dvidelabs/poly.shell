@@ -57,25 +57,26 @@ _runSiteActions = (jobname, sched, config, actions, cb) ->
   config.quiet = options.quiet
   n = actions.length
   return cb null, site unless n
-  i = 0
-  total = n
+  fragment = 0
+  fragments = n
   for action in actions
-    ++i
-    if total == 1
+    ++fragment
+    if fragments == 1
       name = jobname
     else
-      name = jobname + '(' + i + '/' + total + ')'
+      name = jobname + '(' + fragment + '/' + fragments + ')'
     e = null
     ctx = sched._ctx
     ++ctx.actioncount
-    id = "#{ctx.batchid}-#{sched.index}-#{ctx.actioncount}"
+    ++sched.actioncount
+    id = "#{ctx.batchid}-#{sched.index}-#{sched.actioncount}"
     issuer = "[#{id}] #{site}"      
     config.issuer = issuer
     actionObj = {
       _ctx: ctx, _sched: sched, options : options,
       shared: ctx.shared, batchid: ctx.batchid, id, issuer,
-      #index: ctx.actioncount
-      fragment: i, fragments: total, jobname: name, site: config, shell: shell(config),
+      count: ctx.actioncount, index: sched.actioncount
+      fragment, fragments, jobname: name, site: config, shell: shell(config),
       report: (msg) ->
         if options.log or options.report
           state = if n then "" else " (background)"
@@ -200,6 +201,7 @@ class Jobs
       type
       options: options
       jobs
+      actioncount: 0
       index: ctx.schedulecount
       id: "#{ctx.batchid}-#{ctx.schedulecount}"
       }
@@ -323,10 +325,11 @@ class Jobs
         _runSiteActions jobname, sched, @sites.get(site), actions, cb
     cb()
 
-  # Run all jobs in a sequential schedule across all sites.
+  # Run all jobs in an atomic schedule where only one job at one
+  # site executes at any given time.
   # Actions within a single job still run concurrently.
-  runSequential: (jobs, options, complete) ->
-    sched = @_prepareBatch('sequential', jobs, options, complete)
+  runAtomic: (jobs, options, complete) ->
+    sched = @_prepareBatch('atomic', jobs, options, complete)
     jobs = sched.jobs
     errors = 0
     q = []
@@ -334,15 +337,15 @@ class Jobs
     actioncount = 0
     for jobname in jobs
       if job = @_findJob sched, jobname
-        siteactions = job.siteActions(sched.options.roles)
+        siteactions = job.siteActions(sched.options.roles)        
         for site, actions of siteactions
           sites.push site
           actioncount += actions.length
           q.push [ jobname, sched, @sites.get(site), actions ]
     _reportSchedule(sched, _.uniq(sites), actioncount)
     next = (err) ->
-      # the this pointer of next is not the job
-      # because we injecting a context in the callbacks
+      # the `this` pointer of next is not the job
+      # because we are injecting a schedule object into the callbacks
       ++errors if err
       w = q.shift()
       if not w or (errors and sched.options.breakOnError)
@@ -350,6 +353,48 @@ class Jobs
       w.push next
       _runSiteActions.apply null, w
     next()
+
+  # Run all jobs in a sequential schedule where a job is started
+  # concurrently on all matching sites, but also completes
+  # on all sites before the next job is started.
+  runSequential: (jobs, options, complete) ->
+    sched = @_prepareBatch('sequential', jobs, options, complete)
+    jobs = sched.jobs
+    q = []
+    sites = {}
+    actioncount = 0
+    for jobname in jobs
+      if job = @_findJob sched, jobname
+        w = []
+        w. jobname = jobname
+        siteactions = job.siteActions(sched.options.roles)
+        w.push siteactions
+        if options.log
+          for site, actions of siteactions
+            actioncount += actions.length
+            sites[site] = true;
+        if w.length > 0
+          q.push w
+    _reportSchedule(sched, _.keys(sites), actioncount)
+    pending = 1
+    errors = 0
+    _sites = @sites
+    _cb = (err) ->
+      _debug "pending", pending
+      ++errors if err
+      if pending <= 0
+        throw new Error "internal schedule error"
+      return if --pending
+      pending = 1
+      w = q.shift()
+      unless w or (errors and options.breakOnError)
+        return sched._complete(errors or null)
+      for siteactions in w
+        for site, actions of siteactions
+          ++pending
+          _runSiteActions w.jobname, sched, _sites.get(site), actions, _cb
+      _cb()
+    _cb()
 
 #   Create class to schedule jobs across multiple sites:
 exports.jobs = (sites) -> new Jobs(sites)

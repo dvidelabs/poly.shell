@@ -269,10 +269,23 @@ module.exports = {
     opts2 = mkopts()
     opts3 = mkopts()
     
-    runs = ['par', 'seq', 'site-set', 'chained']
+    bad = ['site-seq', 'atomic']
+    good = ['par', 'seq', 'chained']
+    
+    runs = good
     
     if 'seq' in runs 
       
+      # sequential seems to work
+      ++expectchecks
+      jobs.runSequential ['deploy', 'countertest'], opts, ->
+        # only run the global check once, assign it to site foo.bar
+        # pass shared state to new schedule via opts.
+        opts.roles = 'foo.bar'
+        jobs.run 'checkruns', opts, complete    
+
+    if 'atomic' in runs 
+
       # sequential seems to work
       ++expectchecks
       jobs.runSequential ['deploy', 'countertest'], opts, ->
@@ -290,12 +303,12 @@ module.exports = {
         opts2.roles = 'foo.bar'
         jobs.run 'checkruns', opts2, complete    
 
-    if 'site-seq' in runs
+    if 'par' in runs
 
       # site-sequential messes up what actions to run where
       # or at least messes up logging of the fact
       ++expectchecks
-      jobs.runSiteSequential ['deploy', 'countertest'], opts2, ->
+      jobs.runParallel ['deploy', 'countertest'], opts2, ->
         opts2.roles = 'foo.bar'
         jobs.run 'checkruns', opts2, complete    
         
@@ -306,7 +319,8 @@ module.exports = {
 
     setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 600)
     
-    assert.equal runs.length, 4, "disabled some failing tests"
+    assert.equal expectchecks, runs.length, "unsupported run type in test"
+    assert.equal expectchecks, 4, "disabled some failing tests"
 
 }
 

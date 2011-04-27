@@ -28,6 +28,18 @@ Roles are used to name groups of sites in a server cluster. This makes it easy t
 assign jobs to specific sites, and also to configure multiple sites consistently
 with common settings.
 
+## TODO
+
+- Implement and document `jobs.password(roles, [password])`.
+  Cleanup password documentation accordingly.
+- Document runAtomic.
+- BUG: runSequential and runSiteSequential fails test/jobs.coffee mixed test.
+- Remove all run variants other than `jobs.run` and `this.run`,
+  and replace them with `option.type` option to `jobs.run`.
+- Remove need for schedule internal use of __proto__
+- Implement Splat, the Vlad copy cat.
+- Add license file.
+
 ## Installation
 
 Download to some user local folder.
@@ -37,7 +49,7 @@ Enter folder and install locally (using npm 1.0.0):
     make install
 
 (Or use npm 0.3.x directly without the makefile, not tested - notably the makefile has
-some npm 1.0.0 specific references to the coffee-script compiler because coffee-script
+some npm 1.0.0 specific references to the CoffeeScript compiler because CoffeeScript
 as of this writing otherwise fails with the npm 1.0.0 module system.)
 
 Test that things are ok (see warning below):
@@ -46,17 +58,18 @@ Test that things are ok (see warning below):
 
 **Warning**: it may be that some tests happen to want to run on the host
 `example.com`. This should not be the case - such logic should be elsewhere,
-but just in case it slips: The tests will either break because `example.com`
-is an unknown host, or, if `example.com` has been pointed to a real server,
-possibly create `tmp` folders, dump test files, and remove `tmp` folders on
-your `example.com` server. This will naturally also happen locally when tests
-are running, hence `make clean`.
+but just in case it slips: The tests may break because `example.com`
+is an unknown host. If `example.com` has been pointed to a known host, the tests
+might possibly create `tmp` folders, dump test files, and remove `tmp` folders on
+your `example.com` server.
 
-## Coffee-Script
+Tests normally dump files in a local tmp dir that is cleaned with `make clean`.
 
-Ploy is written primarily in coffee-script, but that shouldn't change anything.
-If, for some reason (including debugging), a javascript version is needed,
-a javascript only module can be created in sub-folder using:
+## CoffeeScript
+
+Ploy is written primarily in CoffeeScript, but that shouldn't change anything.
+If, for some reason (including debugging), a JavaScript version is needed,
+a JavaScript only module can be created in sub-folder using:
 
     make js
 
@@ -271,12 +284,19 @@ desired behaviour.
 
 See `jobs.run` for more details.
 
+### jobs.runAtomic(jobs, [roles], [options], [callback])
+
+Runs a job on one site at a time. Starts a new job when that last matching
+site has completed the current job. Job actions within a single job on a single site
+run concurrently. `callback` is called once all jobs have
+completed on all sites.
+
 ### jobs.runSequential(jobs, [roles], [options], [callback])
 
-Run all jobs one after another in a `sequential` schedule such that jobs run
-concurrently on all sites, but a new job is not started before the previous
-job has completed on all sites. `callback` is called once all jobs have
-completed on all sites.
+Run jobs one after another in a `sequential` schedule such that a single job
+runs concurrently on all matching sites, but also such that no two jobs
+overlap across all sites. `callback` is called once all jobs have completed on
+all sites.
 
 See `jobs.run` for more details.
 
@@ -577,8 +597,9 @@ following methods and properties:
       a globally unique batch identifier string used to prefix all other identifiers.
       
   - `this.id` :
-  
-      a globally unique starting with batch id followed by a the schedule index separated by a dash.
+
+      A globally unique id for this schedule invocation with the form:
+      `batchid-scheduleindex`
       
   - `this.index` :
   
@@ -586,7 +607,8 @@ following methods and properties:
       
   - `this.issuer` :
   
-      the prefix used for logging messages, which include the schedule id.
+      the prefix used for logging messages, which include the schedule id with the form
+      [`this.id`] `site.name`
       
   - `this.jobs` :
   
@@ -631,7 +653,7 @@ sites and jobs of the original schedule that started the batch.
 ## Actions
 
 An action is an anonymous function with no arguments that is added to a job
-using the `job.add` method:
+using the `jobs.add` method:
 
     jobs = require('ploy').jobs();
 
@@ -653,12 +675,11 @@ used to add OS specific actions:
     jobs.add('sysupdate', ['centos'], function() {
       // ...
     });
-    // update all debian systems every Wednessday
-    if(isWednessday())
-      jobs.run(['sysupdate'], 'debian');
-    // update all systems every second thursday of very month
-    if(isSecondThurdayOfMonth())
-      jobs.run(['sysupdate']);
+    date = new Date();
+    if(date.getDay() === "Tuesday")
+      jobs.run('sysupdate');
+    else
+      jobs.run('sysupdate', 'debian');
 
 If we want to add multiple actions that execute together concurrently, this
 can be done by adding using the same roles in subsequent calls to `job.add`,
@@ -704,28 +725,37 @@ the following methods and properties:
   
       a globally unique identifier for this batch, used to prefix action id.
       
+    `this.count` :
+    
+      the action invocation index of this batch, starting with 1. The index is
+      unique to this action within the current batch.
+      
   - `this.fragment` :
   
-      a number between 1 and `total`. The same action may have different fragment
-      numbers on different invocations, but it is unique for the current job
+      a number between 1 and `fragments`. The same action may have a different fragment
+      number on a different site, but it is unique for the current job
       invocation on the current site.
-      Logging use (this.fragment/this.fragments) in job start msg if total > 1.
+      Logging use the job name suffix `(fragment/fragments)` when there is more than
+      one fragment.
       
   - `this.fragments` :
   
-      total number of actions (fragments) running in this job invocation on this site.
+      the total number of actions (fragments) running in this job invocation on this site.
       
   - `this.id` :
-  
-      a globally unique action invocation id, prefixed by batch id and schedule index.
-      
+
+      the action id is globally is unique for this invocation. It has the form:
+      `batchid-scheduleindex-actionindex`.
+
   - `this.issuer` :
   
-      the prefix used for logging, including the `id`.
+      the issuer is a string used for logging. It has the form:
+      `[batchid-scheduleindex-actionindex] sitename`
       
   - `this.index` :
   
-      the action invocation index of this batch, starting with 1.
+      index of this action within the current schedule. Used as the third value in
+      the `this.id` string.
       
   - `this.jobname` :
   
@@ -747,11 +777,11 @@ the following methods and properties:
       
   - `this.site` :
   
-      the site configuration object, for example `this.site.name`.
+      the site configuration object, for example used to access the site name through: `this.site.name`.
 
 **Methods**
 
-  - `this.debug: (msg, [value])` :
+  - `this.debug(msg, [value])` :
   
       debug message and optional object inspection dump when `debug` option is true.
       
@@ -761,11 +791,11 @@ the following methods and properties:
 
 **Flow and Error Control**
 
-  - `this.async()` :
-  
+  - `this.async() => callback(err)` :
+      
       acquires a callback function: "callback = `this.async()`" that can be
-      called by asynchronous functions, for example `this.shell.run(cmd,
-      callback)`. `async()` may be called multiple times to coordinate multiple
+      called by asynchronous functions, for example `this.shell.run(cmd, callback)`.
+      `async()` may be called multiple times to coordinate multiple
       async methods in the action. Each acquired callback **must** be called
       exactly once, either with null or an error. `this.async()` must not be
       called after the action has returned unless there are uncalled callbacks
