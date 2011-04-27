@@ -265,62 +265,45 @@ module.exports = {
     checks = 0
     expectchecks = 0
     
-    opts = mkopts()
-    opts2 = mkopts()
-    opts3 = mkopts()
+    runs = ['atomic', 'site-sequential', 'parallel', 'sequential', 'chained']
     
-    bad = ['site-seq', 'atomic']
-    good = ['par', 'seq', 'chained']
-    
-    runs = good
-    
-    if 'seq' in runs 
-      
-      # sequential seems to work
+    if 'sequential' in runs 
+      opts = mkopts()
       ++expectchecks
       jobs.runSequential ['deploy', 'countertest'], opts, ->
-        # only run the global check once, assign it to site foo.bar
-        # pass shared state to new schedule via opts.
         opts.roles = 'foo.bar'
         jobs.run 'checkruns', opts, complete    
 
     if 'atomic' in runs 
-
-      # sequential seems to work
+      opts = mkopts()
       ++expectchecks
       jobs.runSequential ['deploy', 'countertest'], opts, ->
-        # only run the global check once, assign it to site foo.bar
-        # pass shared state to new schedule via opts.
         opts.roles = 'foo.bar'
         jobs.run 'checkruns', opts, complete    
 
-    if 'site-seq' in runs
-
-      # site-sequential messes up what actions to run where
-      # or at least messes up logging of the fact
+    if 'site-sequential' in runs
+      opts = mkopts()
       ++expectchecks
-      jobs.runSiteSequential ['deploy', 'countertest'], opts2, ->
-        opts2.roles = 'foo.bar'
-        jobs.run 'checkruns', opts2, complete    
+      jobs.runSiteSequential ['deploy', 'countertest'], opts, ->
+        opts.roles = 'foo.bar'
+        jobs.run 'checkruns', opts, complete    
 
-    if 'par' in runs
-
-      # site-sequential messes up what actions to run where
-      # or at least messes up logging of the fact
+    if 'parallel' in runs
+      opts = mkopts()
       ++expectchecks
-      jobs.runParallel ['deploy', 'countertest'], opts2, ->
-        opts2.roles = 'foo.bar'
-        jobs.run 'checkruns', opts2, complete    
+      jobs.runParallel ['deploy', 'countertest'], opts, ->
+        opts.roles = 'foo.bar'
+        jobs.run 'checkruns', opts, complete    
         
     if 'chained' in runs
+      opts = mkopts()
       ++expectchecks    
-      jobs.run ['deploy', 'countertest'], opts3, ->
+      jobs.run ['deploy', 'countertest'], opts, ->
         @run 'checkruns', { roles: 'foo.bar', desc: 'chained schedule, same batch' }, complete
 
     setTimeout((->assert.equal checks, expectchecks, "test failed to run or to complete in time"), 600)
     
     assert.equal expectchecks, runs.length, "unsupported run type in test"
-    assert.equal expectchecks, 4, "disabled some failing tests"
 
 }
 
