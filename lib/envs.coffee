@@ -9,8 +9,8 @@ class Environments
   # Add new environent or update existing.
   #
   # `names` : env name or (nested) array of env names
-  # `roles` : role name or (nested) array of role names
-  #
+  # `roles` : optinal role name or (nested) array of role names
+  # `merge` : optional merge function when env exists, defaults to _.extend
   # An env implicitly becomes a member of the role with its own name.
   # An env has a reserved `name` property that cannot be overridden
   # (this is managed when the env is read).
@@ -31,7 +31,13 @@ class Environments
   #   sites.add('test-host', { path: "/tmp", user: "test", host: "0.0.0.0" });
   #   sites.add('app.example.com');
   #
-  add: (names, roles, env) ->
+  add: (names, roles, env, merge) ->
+    if typeof env == 'function'
+      merge = env
+      env = null
+    if typeof roles == 'function'
+      merge = roles
+      roles = null
     if roles and (typeof roles) is 'object' and not (roles instanceof Array)
       env = roles
       roles = []
@@ -40,7 +46,9 @@ class Environments
     for name in names
       e = @_env[name]
       if e
-        _.extend(e, env) if env
+        unless merge
+          merge = _.extend
+        merge(e, env) if env
         e.name = name
       else
         if env
@@ -82,8 +90,8 @@ class Environments
   #
   #    sites.update(['www', test-www'], 'deploy');
   #
-  update: (lhRoles, rhRoles, env) ->
-    @add(@list(lhRoles), rhRoles, env)
+  update: (inroles, roles, env, merge) ->
+    @add(@list(inroles), roles, env, merge)
 
   # Returns a copy of the environment object for a valid name, or null.
   get: (name) ->

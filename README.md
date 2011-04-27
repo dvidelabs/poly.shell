@@ -28,13 +28,6 @@ Roles are used to name groups of sites in a server cluster. This makes it easy t
 assign jobs to specific sites, and also to configure multiple sites consistently
 with common settings.
 
-## TODO
-
-- Implement and document `jobs.password(roles, [password])`.
-  Cleanup password documentation accordingly.
-- Remove need for schedule internal use of __proto__
-- Implement Splat, the Vlad copy cat.
-- Add license file.
 
 ## Installation
 
@@ -129,63 +122,58 @@ until the action completes.
 See also `test/jobs.coffee`, `test`, `envs.coffee`, and the `examples` folder
 for more inspiration.
 
-## Scheduling
+### Scheduling
 
 The Ploy job control scheduler is fairly simple. A schedule is an array of job
-names which can be run in `sequence`, in `parallel`, or the default:
-`site-sequential` where different jobs may run at the same time but each site
-will only see one of the jobs at a time. These schedules can then be chained
-to more complex scenarios if needed, and the same jobs can easily be reused in
-different schedules. This model is somewhat similar to the various `node.js`
-async libraries like `seq`, `flow` and `async`, but with role based job
-distribution, reporting, configuration, unique identifiers, (remote) shell
-support, and password agents.
+names which can be run in one the following modes: `sequential`, `atomic`,
+`parallel`, or the default: `site-sequential` where different jobs may run at
+the same time but each site will only see one of the jobs at a time. These
+schedules can then be chained to more complex scenarios if needed, and the
+same jobs can be reused in different schedules. This model is somewhat similar
+to the various `node.js` async libraries like `seq`, `flow` and `async`, but
+with role based job distribution, reporting, configuration, unique
+identifiers, (remote) shell support, and password agents.
 
-Ploy has no dependency resolver, but it is not difficult to use Ploy inside a
+Ploy has no dependency resolver, but it is possible to use Ploy inside a
 `Jakefile`, or similar tools. Because Ploy does not try to schedule for you,
 some other interesting options become possible. Ploy job control provides a
-shared object space and unique identifiers which makes it easy to add locks
-and event queues using `node.js` standard facilities such a `EventEmitter`.
-Locking is well known from database scheduling and provide a very good
-scheduling algorithm. This means that Ploy jobs can take of in parallel attach
-to some locks and wait for things to get done so they can proceed. Ploy does
-not directly provide such locking primitives, but they would be an obvious
-extension module.
+shared object space and unique identifiers which enables the use locks and
+event queues using `node.js` standard facilities such a `EventEmitter`. The
+password agent facility of ploy is one such example. Locking is well known
+from database transaction coordination and provide a good scheduling
+algorithm. This means that Ploy jobs can take off in parallel, have jobs
+attach to some contextual locks and wait for things to get done so they can
+proceed. Ploy does not directly provide such locking primitives (beyond the
+password agent and cache), but they would be an obvious extension module.
 
 ### Passwords
 
-Ploy does not (as of this writing) support ssh password login. It is assumed that
-ssh will use ssh keys without passwords, or with sshagent, or a similar password agent.
+Ploy does not support ssh password based account login. It is assumed that ssh
+will use ssh keys without passwords, or with passwords managed by an external
+agent such as `ssh-agent`.
 
-Ploy does, however, have a password agent for sudo passwords. It is possible
-to configure multiple sites to share a single password cache such that when
-the first remote shell process asks for a password, all other concurrent
-actions will hold, waiting for user input, and then proceed once the password
-has been entered.
+Ploy does, however, support `sudo` password prompts after ssh login. In the
+basic form a shell detects a sudo prompt and issues a silent prompt to the
+user console.
 
-Two processes may race to ask for a password, in which case the user
-is prompted twice. Processes may also jam the about with noise making it difficult to
-enter a password. For these reasons, it is helpful to create a job specific to acquiring
-a password and the schedule other jobs after that.
+Since many processes may target the same site, and many sites may have the
+same admin password, it is convenient to cache a password across sites.
 
-TODO: this is experimental: passwords may not interact correctly with the job controller
-as of this writing, but the general idea is:
+This works by creating a password cache object that is stored in all site
+configurations that are supposed to share a `sudo` passwords. The shell object,
+used to run remote (and local) commands, will look for a password cache when
+it detects a `sudo` prompt. The shell will then either discover that there is
+no password and prompt the user for one, or it will detect that there is a
+password cached and try this once before prompting the user, or it will detect
+that the cache is coordinating an ongoing password prompt issued by some other
+process. In the latter case the shell will queue up in the cache waiting for a
+response, then proceed as if it detected a cached password.
 
-    ploy = require('ploy');
-    jobs = ploy.jobs();
-    sites = jobs.sites;
-    
-    sites.add('host1', { host: "h1.example.com" });
-    sites.add('host2', { host: "h2.example.com" });
-    
-    // now all current hosts in the hub-zero role will share passwords
-    sites.add(['host1', 'host2'], 'hub-zero', { 'password-agent': ploy.password.agent(); });
-    
-
-TODO: the jobs controller currently does not read the password-agent setting
-to initialise the shell accordingly. See `test/passwords.coffee`,
-`manual-test/password.coffee`, `lib/shell.coffee`, and `lib/password.coffee`.
-
+It is possible to create a password cache directly and store it in site
+configurations, but it is simpler to call the `jobs.sharePassword` function.
+This function also supports a preset password. It is really just a convenience
+function so for more advanced scenarios use the source code for inspiration;
+see `lib/password.coffee` and `lib/jobs.coffee`.
 
 ## API
 
@@ -206,7 +194,9 @@ subset given by the restricting roles passed to the `job.run` function.
 
 Roles cannot be added to existing actions, only restricted, when running.
 However, sites may be added by including them in roles after a job has been
-created, and new actions may be added in new roles.
+created, and new actions may be added in new roles. (This is unlike adding and
+updating site configurations that effect immediately on sites in the given
+roles.)
 
 Example roles (arrays are flattened before use):
 
@@ -249,10 +239,6 @@ before switching over all servers to the new site version.
 By having backup in a separate action we get better error reporting without risking not
 running it along with the upgrade.
 
-TODO: it seems that we need more sequential ops: one that runs only one job at a time
-in rotation on all matching sites before proceeding to each job, and one the
-ensures a job has completed on all sites before starting the next job.
-
 When a job is added multiple times, each action is associated with those roles
 given when added to the job. In effect a job becomes a cluster of actions that
 run together, but not necessarily in the same place, but always at the same
@@ -286,6 +272,8 @@ Runs a job on one site at a time. Starts a new job when that last matching
 site has completed the current job. Job actions within a single job on a single site
 run concurrently. `callback` is called once all jobs have
 completed on all sites.
+
+See `jobs.run` for more details.
 
 ### jobs.runSequential(jobs, [roles], [options], [callback])
 
@@ -375,6 +363,24 @@ options:
   
       suppress error messages, overridden by opts.log.
 
+### jobs.sharePassword(roles, [password])
+
+Assigns a common password cache to all sites currently in the given `roles`.
+Any sites added to a role subsequently will not automatically be included.
+This is in line with how site configurations normally work, but unlike how
+`jobs.add` use late binding of role names, so watch out for that.
+
+The optional `password` argument will set a password in the cache such
+the the user is not prompted if the password match.
+
+`jobs.sharedPassword` can be called multiple times to have different
+password agents for different sites. Any existing caches will be replaced.
+
+Many other scenarios are possible, but then password agents must be created
+manually and stored manually in the `passwordCache` property of relevant
+sites, possibly using a custom merge function for updating site
+configurations. This is beyond the scope of this documentation.
+
 ## Environments
 
 ### envs()
@@ -403,6 +409,15 @@ important: if present, .ssh/config can be used to provide access to the given
 host, and if absent, a local shell is assumed. See `Shell` and `jobs()` for
 more details.
 
+### Advanced configuration
+
+Site configurations may hold non-trivial objects. For example, a password
+cache can be stored in a site config under the name `passwordCache` which will
+be used by shells detecting a `sudo` prompt. The cache object not only stores
+a common password, but also holds an EventListener that queues up all shells
+waiting for the same password. The `jobs.sharedPassword` function sets up such
+a cache for sites in the given roles.
+
 ### sites()
 
 Creates a collection of environment objects indexed by name and organised
@@ -422,7 +437,7 @@ The environments collection can by used for a number of other purposes:
 
     envs = require('ploy').envs();
 
-### sites.add(names, [roles], [config])
+### sites.add(names, [roles], [config], [merge])
 
 
     sites = require('ploy').sites()
@@ -460,8 +475,14 @@ names conflict. Configurations are always cloned so the input object will
 never be changed by modifying a site, and sites added simultaneously will have
 separate copies.
 
+`merge` : an optional merge function that is applied if a config object already exists.
+The default is to use the _.extend function from the underscore library. `merge` has the form
+`merge(x, y)` where `x` is the existing object that must be updated in-place, and `y` is
+the new config object given as argument to `sites.add`.
+
 A configuration object always has a property named 'name' which is identical to
-the site name. It cannot be overridden, but it can be changed after calling `sites.get()`.
+the site name. It cannot be overridden, but it can be changed for "personal" use
+without ill-effects after calling `sites.get()`.
 
 
     sites = require('ploy').sites();
@@ -492,6 +513,8 @@ the site name. It cannot be overridden, but it can be changed after calling `sit
       // => { name: "site1", x: "1", y: "2" }
     sites.get('site2');
       // => { name: "site2", x: "1", y: "2", z: 3, info: { tags: [ "busy" ] } }
+
+The above behaviour can be changed with a custom merge function.
 
 ### sites.get(name)
 
@@ -530,11 +553,11 @@ returned.
 include in the result set. The filter is used by the job controller to
 restrict the number of sites a job would normally target.
 
-### sites.update(inroles, [roles], [config])
+### sites.update(inroles, [roles], [config], [merge])
 
-A shorthand for `sites.add(sites.list(inroles), roles, config);
+A shorthand for `sites.add(sites.list(inroles), roles, config, merge);
 
-Updates all sites in the given `inroles` simulatanously, but will
+Updates all sites in the given `inroles` simultaneously, but will
 not create any new sites.
 
 ### job.sites
@@ -889,9 +912,9 @@ user. This can be messy if there is a lot of logging going on, so best to make
 sure at least the first `sudo` operation runs at an isolated stage, although
 not a requirement.
 
-In the following example we see two different ways to run sudo. One where the
-shell object detects sudo in the start of the command, and one where we
-explicitly call sudo. The latter is recommended, but for trivial commands the
+In the following example we see two different ways to run `sudo`. One where the
+shell object detects `sudo` in the start of the command, and one where we
+explicitly call `sudo`. The latter is recommended, but for trivial commands the
 former should work.
 
   shell = require('ploy').shell
@@ -902,17 +925,17 @@ former should work.
 
 
 The example above runs two shells concurrently on the same shell object. One
-of the commands will detect a sudo prompt, ask for password, save the password
+of the commands will detect a `sudo` prompt, ask for password, save the password
 in a cache and feed the password to the remote server. The other command will
-detect a sudo request, then detect that the other shell is already pending for
+detect a `sudo` request, then detect that the other shell is already pending for
 user input and wait for the result, then access the cached password and send
 it to the server.
 
-Note that on some systems, the remote end will have a sudo timeout so the
+Note that on some systems, the remote end will have a `sudo` timeout so the
 second command will not need to ask for a password, while others will.
 
 We can also set the password explicitly if we dare to have it accessible in a
-script. This will preload the cache and the first command detecting a sudo
+script. This will preload the cache and the first command detecting a `sudo`
 prompt will try the cached password first before falling back to asking the
 user:
 
@@ -924,7 +947,7 @@ user:
 
 We can also explicitly ask the user for a password before detecting a sudo
 prompt and then cache the password for later use. When a shell eventually
-detects a sudo prompt, it will first try the cached password before asking the
+detects a `sudo` prompt, it will first try the cached password before asking the
 user:
 
     shell = require('ploy').shell
@@ -962,7 +985,7 @@ to set up a shared passwordCache property for multiple sites. See also
 `lib/password.coffee` if a custom password agent is needed - the interface
 is fairly simple.
 
-The hosts will in either case be sharing a password cache so first sudo
+The hosts will in either case be sharing a password cache so the first `sudo`
 prompt will block all other prompts and have the shell wait for the first
 prompt to provide the answers.
 

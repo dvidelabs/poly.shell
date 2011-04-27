@@ -60,10 +60,8 @@ askPasswordTwice = (prompt, prompt2, cb) ->
       else
         cb null, password
 
-
 class PasswordCache extends EventEmitter
-  constructor: ->
-    @password = null
+  constructor: (@password) ->
     @pending = null
   reset: ->
     @password = null
@@ -80,7 +78,13 @@ class PasswordAgent
   constructor: (@cache = new PasswordCache()) ->
     @maxAttempts = 5
     @reset()
-
+    @_log = ->
+    
+  setLog: (logfun = console.log) ->
+    @_log = logfun
+  resetLog: ->
+    @_log = ->
+    
   reset: ->
     @attempts = 0
     @prompt = util.uid(6) + ":Password:"
@@ -88,18 +92,18 @@ class PasswordAgent
     @cache.reset()
   setPassword: (pw) ->
     @cache.set(pw)
-    console.log "setting password"
+    @_log "setting password"
   getPassword: (cb = ->) ->
     @attempts++
     pw = @cache.get()
     if @attempts == 1 and pw
-      console.log "using cached password"
+      @_log "using cached password"
       cb(null, pw)
     else if @attempts > @maxAttempts
       cb "giving up on password after #{@maxAttempts} attempts"
     else
       if @cache.isPending()
-        console.log "waiting for password entry in other process"
+        @_log "waiting for password entry in other process"
         @cache.once('password', cb)
       else
         _cb = (err, pw) =>
@@ -115,5 +119,5 @@ helpers.silentPrompt = silentPrompt
 helpers.askPassword = askPassword
 helpers.askPasswordTwice = askPasswordTwice
 exports.helpers = helpers
-exports.cache = (cache) -> new PasswordCache()
+exports.cache = (password) -> new PasswordCache(password)
 exports.agent = (cache) -> new PasswordAgent(cache)

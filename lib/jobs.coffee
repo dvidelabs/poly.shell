@@ -2,6 +2,7 @@ _ = require 'underscore'
 util = require './util'
 shell = require('./shell').shell
 sysutil = require('util')
+password = require('./password')
 
 _fmt = { indent: "    ", sep: ", " }
 
@@ -138,6 +139,7 @@ class _Job
       map[site] = _.flatten actions
     return map
 
+    
 # Jobs require a sites collection to manage the configuration
 # of sites that jobs can run on.
 # Sites can be defined using the Environments class
@@ -204,9 +206,9 @@ class Jobs
       actioncount: 0
       index: ctx.schedulecount
       id: "#{ctx.batchid}-#{ctx.schedulecount}"
-      }
+    }
     # make it possible to run new schedules in same batch
-    
+
     _complete = (args...) ->
       if options.log
         errors = if args.length then args[0] else null
@@ -217,7 +219,14 @@ class Jobs
     sched._complete = _complete
     return sched
 
-  
+  # A convenience method for easily sharing passwords.
+  # Assigns a common password cache to all sites currently
+  # in the given roles, explacing any existing caches.
+  sharePassword: (roles, password) ->
+    cache = password.cache(password)
+    @sites.update(roles, { passwordCache: cache } )
+    return null
+
   # Adds actions to a new or existing named job.
   #
   # If no role is given, the jobname is used as role.
@@ -292,9 +301,6 @@ class Jobs
         ++pending
         next()
     cb()
-
-  # synonym for default run mode
-  run: -> @runSiteSequential.apply(@, arguments)
 
   # Run all actions of all jobs in a parallel schedule.
   runParallel: (jobs, options, complete) ->
@@ -395,6 +401,9 @@ class Jobs
           _runSiteActions w.jobname, sched, _sites.get(site), actions, _cb
       _cb()
     _cb()
+
+  # synonym for default run mode
+  run: -> @runSiteSequential.apply(@, arguments)
 
 #   Create class to schedule jobs across multiple sites:
 exports.jobs = (sites) -> new Jobs(sites)

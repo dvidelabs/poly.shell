@@ -96,6 +96,25 @@ module.exports = {
       name: 'x', msg: 'world', testpath: 'test',
       module: { c: 3 }}, sites.get('x')
 
+  merge: ->
+    merge = (x, y) ->
+      for key, val of y
+        z = x[key]
+        if z instanceof Array
+            z.push val
+        else
+          x[key] = val
+      return x
+    sites = createSites()
+    sites.add ['a', 'b'], { list: ['1','2'] }
+    data = { list: '3', foo: 'bar' }
+    sites.add 'a', data, merge
+    sites.add 'b', data
+    console.log sites.get('a')
+    assert.eql { name: 'a', list: ['1', '2', '3'], foo: 'bar' }, sites.get('a')
+    assert.eql { name: 'b', list: '3', foo: 'bar' }, sites.get('b')
+
+
   listroles: ->
     sites = createSites()
     sites.add ['example.com', 'app.example.com'], 'deploy'
