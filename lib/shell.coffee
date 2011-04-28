@@ -165,6 +165,8 @@ class Shell
         name: @name
         passwordAgent: pwa
         log: @log
+        outStream: @outStream
+        logStream: @logStream
       }, _cb
     this
 

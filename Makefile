@@ -31,4 +31,5 @@ cleandep:
 	@rm -rf node_modules
 
 test: dep
+	mkdir -p tmp
 	@expresso
