@@ -1,7 +1,5 @@
 LICENSE
 
-(The MIT License)
-
 Copyright (c) 2011 Mikkel Fahnøe Jørgensen <mikkel@dvide.com>
 
 Permission is hereby granted, free of charge, to any person obtaining
@@ -27,22 +25,25 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 CONTRIBUTOR LICENSE AGREEMENT (CLA)
 
-Unless explicitly stated otherwise in contributions, contributions are
-assumed copy-left allowing the original LICENSE holder to do the
-following at will without explicit permissions by contributing
-authors: to modify and include or exclude contributions, change
-license of the project with contributions, sub-license the project
-with contributions.
+By submitting contributions to the 'Software', contributors agree to
+the following terms:
 
-Included sub-projects with own license terms are not covered by this
-CLA.
+Any contributions that do not clearly and explicitly include a
+statement to the contrary permit the copyright holders of this
+software to assume copyright of included and possibly modified
+contributions. Contributors acknowledges to be in a position to
+provide the contribution under these terms without violating the
+rights of third parties, including, but not limited to, an employer.
 
-This CLA does not extend to branched projects to the extend branching
-is permitted by the project LICENSE. That is, if the project is
-branched, any changes to that branch is not considered contributions,
-but changes from any such branch submitted back to the upstream
-project are considered contributions unless otherwise explicitly
-stated.
+Copyright holders of the 'Software' is permitted to deal in the Software,
+including contributions from the submitting author, without
+restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished
+to do so.
 
-Contributions should not be submitted if the terms of the CLA are
-found disagreeable.
+----------------------------------------------------------------------
+
+This software may include independent software with own license terms
+and copyright holders. This LICENSE and CLA does not extend to these
+projects.
