@@ -26,7 +26,7 @@ configured with real host name and ssh keys.
 TODO: test these examples
 
 
-    shell = require('ploy').shell
+    var shell = require('ploy').shell;
     
     shell('example.com').run("ls");
     
@@ -39,9 +39,9 @@ Callbacks can be used to get the error code from the shell, or delay execution
 between two shell commands (although it is usually better to use ' && ' in a
 single command):
 
-    shell = require('ploy').shell
+    var shell = require('ploy').shell;
 
-    host = shell('example.com');
+    var host = shell('example.com');
     
     host.run("ls", function(err) {
       if(!err) {
@@ -52,9 +52,9 @@ single command):
 Multiple shell commands can be given as an array and will be converted
 to a single string joined by ' && ', like the last command below:
 
-    shell = require('ploy').shell
+    var shell = require('ploy').shell;
 
-    host = shell('example.com');
+    var host = shell('example.com');
     host.run(["ls", "touch hello2.test"]);
     host.run("ls && touch hello2.test");
 
@@ -63,11 +63,11 @@ Site configurations are used by the Ploy job controller, partially to
 initialise remote shells. Here is an example using just site configurations
 and shells without job control.
 
-    ploy = require('ploy');
-    sites = ploy.sites();
+    var ploy = require('ploy');
+    var sites = ploy.sites();
     sites.add('host1', { host: "example.com" });
     
-    host1 = shell(sites.get('host1'));
+    var host1 = shell(sites.get('host1'));
     host1.run("touch killroywashere.test");
 
 Shells can also be accessed from within job actions, see `jobs.add`,
@@ -85,11 +85,11 @@ shell object detects `sudo` in the start of the command, and one where we
 explicitly call `sudo`. The latter is recommended, but for trivial commands the
 former should work.
 
-  shell = require('ploy').shell
-  host = shell('example.com');
+  var shell = require('ploy').shell;
+  var host = shell('example.com');
 
   host.sudo("ls");
-  host.run 'sudo tail /var/log/auth.log | grep root'
+  host.run 'sudo tail /var/log/auth.log | grep root';
 
 
 The example above runs two shells concurrently on the same shell object. One
@@ -107,8 +107,8 @@ script. This will preload the cache and the first command detecting a `sudo`
 prompt will try the cached password first before falling back to asking the
 user:
 
-    shell = require('ploy').shell
-    host = shell('example.com');
+    var shell = require('ploy').shell;
+    var host = shell('example.com');
     
     host.setPassword("xyzzy");
     host.sudo("ls");
@@ -118,8 +118,8 @@ prompt and then cache the password for later use. When a shell eventually
 detects a `sudo` prompt, it will first try the cached password before asking the
 user:
 
-    shell = require('ploy').shell
-    host = shell('example.com');
+    var shell = require('ploy').shell;
+    var host = shell('example.com');
 
     host.promptPassword();
     host.sudo("ls", function(err) { if(err) { host.resetPassword(); } });
@@ -134,10 +134,10 @@ Creates a new shell object, but does not run anything or consume any
 significant resources. Holds configuration data needed to start a local shell,
 or a remote shell. Also holds information for password caching:
 
-    shell = require('ploy').shell
-    local = shell();
-    host1 = shell({ host: "example.com", log: true });
-    host2 = shell("example.com");
+    var shell = require('ploy').shell;
+    var local = shell();
+    var host1 = shell({ host: "example.com", log: true });
+    var host2 = shell("example.com");
 
 If neither `host` nor `options` are given, a local shell is created. Note that
 `localhost` is not a local shell, but rather ssh access to the local system.
@@ -149,43 +149,44 @@ options.
 
 `options`:
 
-  - `options.args` :
-  
-      (a string or array of strings), optional extra arguments to ssh before the command to execute
-      (these arguments are for ssh, not the command being run by ssh).
-    
-  - `options.issuer` :
-  
-      optional name used for logging, overrides `host` and `name` for this purpose. Set by job
-      control when creating a shell for a job action with the actions `this.issuer` property.
-     
-  - `options.log` :
-  
-      optional true to enable logging (set by job controls log setting for job action shells).
-    
-  - `options.name` :
-  
-      optional informative system name used for logging (not a user name for remote login).
-    
-  - `options.passwordCache` :
-  
-      enables sharing of passwords between multiple shells - see `Password Agents`.
-    
-  - `options.port` :
-  
-      integer port number for ssh if not the standard port 22 (can also be set in `.ssh/config`).
-    
-  - `options.sh` :
-  
-      optional name for the shell to use instead of the environment SHELL variable.
-    
-  - `options.ssh` :
-  
-      optional alternative ssh command to use for remote access.
-    
-  - `options.user` :
-  
-      optional user name for ssh (can also be set in `.ssh/config`).
+- `options.args`: (a string or array of strings), optional extra
+  arguments to ssh before the command to execute (these arguments are
+  for ssh, not the command being run by ssh).
+
+- `options.issuer`: optional name used for logging, overrides `host`
+  and `name` for this purpose. Set by job control when creating a
+  shell for a job action with the actions `this.issuer` property. -
+  `options.log`: optional true to enable logging (set by job controls
+  log setting for job action shells).
+
+- `options.name`: optional informative system name used for logging
+  (not a user name for remote login).
+
+- `options.passwordCache`: enables sharing of passwords between
+  multiple shells - see `Password Agents`.
+
+- `options.port`: integer port number for ssh if not the standard port
+  22 (can also be set in `.ssh/config`).
+
+- `options.sh`: optional name for the shell to use instead of the
+  environment SHELL variable.
+
+- `options.ssh`: optional alternative ssh command to use for remote
+  access.
+
+- `options.user`: optional user name for ssh (can also be set in
+  `.ssh/config`).
+
+- `options.outStream`: optional writeable stream to receive output
+  instead instead of `process.stdout`.
+
+- `options.logStream`: optional writeable stream to receive log output instead
+  instead of `process.stdout`. Logging only happens if `options.log == true`.
+
+Example redirecting output stream:
+
+
+
 
 ### shell.run(cmd, [callback(err)]
 
@@ -200,12 +201,13 @@ If no callback is given, the shell continues as a background process. The
 callback is compatible with the callback acquired by job actions
 `this.async()`.
 
-If the shell command begins with 'sudo', sudo is stripped from the command and
+If the shell command begins with sudo, sudo is stripped from the command and
 the rest is passed on to the `shell.sudo` helper command.
 
 ### shell.setPassword(password)
 
-Sets the password cache such that the first sudo prompt will not ask the user unless the password is incorrect.
+Sets the password cache such that the first `sudo` prompt will not ask
+the user unless the password is incorrect.
 
 ### shell.resetPassword()
 
@@ -213,11 +215,11 @@ Clears the password cache.
 
 ### shell.promptPassword([callback(err)])
 
-Prompts the user for a password without echoing the text to the console.
-Callback makes it possible to wait for the user to complete the password
-entry. Issues the error text 'SIGNINT' if the user types 'ctrl+C' and should
-normally be used to issue a process.kill(process.pid). Otherwise similar to
-setPassword.
+Prompts the user for a password without echoing the text to the
+console. Callback makes it possible to wait for the user to complete
+the password entry. Issues the error string 'SIGINT' if the user types
+'Ctrl+C' and should normally be used to issue a
+`process.kill(process.pid)`. Otherwise similar to setPassword.
 
 ### shell.sudo(cmd, [callback(err)])
 
@@ -243,6 +245,11 @@ prompt.
 It may be a better strategy to start the entire operation with
 `shell.promptPassword` in isolation before kicking off a host of concurrent
 shell commands.
+
+### shell.log
+
+Enable logging by setting value to true.
+Reflects `options.log` pass when shell was created.
 
 ### shell.passwordCache
 

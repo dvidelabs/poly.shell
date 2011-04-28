@@ -2,7 +2,8 @@
       
 * Redirect shell log and output to custom streams.
 * Capture shell output for shell user.
-      
+* Split documentation into logical API units
+
 2011.04.27, Version 0.1.0
 
 * Remote shell with `sudo` prompt.

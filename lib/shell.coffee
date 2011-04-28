@@ -18,11 +18,11 @@ spawn = (cmd, args, opts, cb) ->
       opts = {}
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
-  out = opts.outputStream or process.stdout
+  out = opts.outStream or process.stdout
   logout = opts.logStream or process.stdout
-  log = buffer ->
+  log = (buffer) ->
     return unless opts.log
-    logout.write buffer
+    logout.write buffer + '\n'
     logout.flush()
 
   log "#{name} : #{cmd} #{args.join(' ')}"
@@ -74,39 +74,15 @@ spawn = (cmd, args, opts, cb) ->
     else
       console.log data.toString()
 
+# see doc/api/shell
 class Shell
   
-  # usage: sh = new Shell([host|opts])
-  # 
-  # examples:
-  #   sh = new Shell();
-  #   bash = new Shell({sh: /bin/bash});
-  #   bash2 = new Shell("example.com", {log:true});
-  #   ex = new Shell({host:example.com, user:"foo", port:2200});
-  #   ex2 = new Shell("foo@example.com");
-  #
-  # host <string> optional, takes precedence over opts.host
-  #
-  # opts <hash> optional:
-  # If host or opts.host is defined, a remote shell is created,
-  # otherwise a local shell is created (setting or not setting opts.ssh does not affect this)
-  # opts.name <string> optional informative system name used for logging (not user name for remote login).
-  # opts.issuer <string> optional name of entity starting shell, when present, used instead of name for logging.
-  # opts.sh <string> overrides local system shell when opts.host is not specified.
-  #                  by default $SHELL is used when present
-  # opts.ssh <string> allows for a specific ssh path used when opts.host is specified.
-  # opts.user <int> optional user name for ssh
-  # opts.port <int> optional port number for ssh
-  # opts.log <bool> enable logging
-  # opts.passwordCache <PasswordCache> enables sharing of passwords between multiple shells
-  # opts.args <array of string | string> are additional shell arguments for local and remote shells
-  #   note: opt.args are for the shell, not for the commands that the shell might run later
   constructor: (opts) ->
     args = []
     if typeof opts == 'string'
       opts = {host: opts}
     opts = {} unless opts
-    @log = opts and opts.log? and opts.log
+    @log = opts.log
     @passwordCache = opts.passwordCache or password.cache()
     pushCustomArgs = ->
       if opts.args
@@ -119,6 +95,8 @@ class Shell
             throw new Error "bad argument, opts.args must be string or array (was #{typeof opts.args})"
     if typeof opts == 'string'
       opts = host: opts
+    @outStream = opts.outStream
+    @logStream = opts.logStream
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
@@ -139,23 +117,6 @@ class Shell
       args.push "-c"
     @args = args
 
-  # sh.run(cmd, [callback(errorCode)])
-  # cmd is a string, or an array that will be joined with &&.
-  #
-  # handles sudo in the trivial case where cmd is a string starting with sudo
-  # like sh.run 'sudo tail /var/log/auth.log', but not with arrays or sudo
-  # later in the syntax.
-  #
-  # example
-  #   sh = new Shell();
-  #   sh.run('ls .', function(ec)
-  #     { if(ec) { throw new Error("#{this.name} failed with error: " + ec); }})
-  #
-  # more examples in test folder
-  #
-  # TODO: consider more advanced piping scheme
-  #       for now, everything goes to stdout concurrently
-  
   run: (cmd, cb) ->
     if /^(\s*)sudo\s/.test cmd
       return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
@@ -165,7 +126,7 @@ class Shell
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     args = @args.concat [cmd.toString()]
-    spawn @shell, args, {name: @name, log: @log}, _cb
+    spawn @shell, args, {name: @name, log: @log, outStream: @outStream, logStream: @logStream }, _cb
     this
 
   # on local systems calls a process directly bypassing the shell
