@@ -213,9 +213,15 @@ the user unless the password is incorrect.
 
 Clears the password cache.
 
-### shell.promptPassword([callback(err)])
+### shell.promptPassword(prompt, [callback(err)])
 
-Prompts the user for a password without echoing the text to the
+`prompt`: optional string to display to the user, defaults to nothing,
+otherwise write prompt to `process.stdout`, also when shell output has
+been redirected.
+
+Waits for user input unless the password cache already has the password,
+or waits for another prompt if the cache says one is active.
+Prompts the user for a password without echoing the input text to the
 console. Callback makes it possible to wait for the user to complete
 the password entry. Issues the error string 'SIGINT' if the user types
 'Ctrl+C' and should normally be used to issue a

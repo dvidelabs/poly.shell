@@ -93,7 +93,10 @@ class PasswordAgent
   setPassword: (pw) ->
     @cache.set(pw)
     @_log "setting password"
-  getPassword: (cb = ->) ->
+  getPassword: (prompt, cb = ->) ->
+    if typeof prompt == 'function'
+      cb = prompt
+      prompt = null
     @attempts++
     pw = @cache.get()
     if @attempts == 1 and pw
@@ -111,6 +114,8 @@ class PasswordAgent
           @setPassword pw unless err
           cb err, pw
         @cache.setPending(true)
+        if prompt
+          process.stdout.write prompt
         readSilentLine _cb
 
 helpers = {}

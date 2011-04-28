@@ -170,8 +170,8 @@ class Shell
 
   # prompt user for password to preload password cache
   # not strictly needed, but may be more userfriendly
-  promptPassword: (cb) ->
-    password.agent(@passwordCache).getPassword(cb)
+  promptPassword: (prompt, cb) ->
+    password.agent(@passwordCache).getPassword(prompt, cb)
   
   # like prompt password, but programmatically set password
   setPassword: (password) ->
