@@ -1,5 +1,0 @@
-0.1.1 Ongoing:
-      Redirect shell log and output to custom streams.
-      Capture shell output for shell user.
-      
-0.1.0 Initial release.

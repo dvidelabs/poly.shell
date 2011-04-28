@@ -1,0 +1,14 @@
+0.1.1 Ongoing:
+      
+* Redirect shell log and output to custom streams.
+* Capture shell output for shell user.
+      
+2011.04.27, Version 0.1.0
+
+* Remote shell with `sudo` prompt.
+* Role based environments for remote site configuration.
+* Password Agent.
+* Concurrent Job Scheduler:
+  `atomic`, `sequential`, `site-sequential`, and `parallel`.
+* Documentation
+* MIT license, CLA
