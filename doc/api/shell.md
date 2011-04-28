@@ -26,7 +26,7 @@ configured with real host name and ssh keys.
 TODO: test these examples
 
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
     
     shell('example.com').run("ls");
     
@@ -39,7 +39,7 @@ Callbacks can be used to get the error code from the shell, or delay execution
 between two shell commands (although it is usually better to use ' && ' in a
 single command):
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
 
     var host = shell('example.com');
     
@@ -52,19 +52,19 @@ single command):
 Multiple shell commands can be given as an array and will be converted
 to a single string joined by ' && ', like the last command below:
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
 
     var host = shell('example.com');
     host.run(["ls", "touch hello2.test"]);
     host.run("ls && touch hello2.test");
 
 
-Site configurations are used by the Ploy job controller, partially to
+Site configurations are used by the Polyshell job controller, partially to
 initialise remote shells. Here is an example using just site configurations
 and shells without job control.
 
-    var ploy = require('ploy');
-    var sites = ploy.sites();
+    var polyshell = require('polyshell');
+    var sites = polyshell.sites();
     sites.add('host1', { host: "example.com" });
     
     var host1 = shell(sites.get('host1'));
@@ -85,7 +85,7 @@ shell object detects `sudo` in the start of the command, and one where we
 explicitly call `sudo`. The latter is recommended, but for trivial commands the
 former should work.
 
-  var shell = require('ploy').shell;
+  var shell = require('polyshell').shell;
   var host = shell('example.com');
 
   host.sudo("ls");
@@ -107,7 +107,7 @@ script. This will preload the cache and the first command detecting a `sudo`
 prompt will try the cached password first before falling back to asking the
 user:
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
     var host = shell('example.com');
     
     host.setPassword("xyzzy");
@@ -118,7 +118,7 @@ prompt and then cache the password for later use. When a shell eventually
 detects a `sudo` prompt, it will first try the cached password before asking the
 user:
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
     var host = shell('example.com');
 
     host.promptPassword();
@@ -134,7 +134,7 @@ Creates a new shell object, but does not run anything or consume any
 significant resources. Holds configuration data needed to start a local shell,
 or a remote shell. Also holds information for password caching:
 
-    var shell = require('ploy').shell;
+    var shell = require('polyshell').shell;
     var local = shell();
     var host1 = shell({ host: "example.com", log: true });
     var host2 = shell("example.com");

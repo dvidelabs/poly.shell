@@ -1,9 +1,9 @@
 {
-  "name": "ploy",
+  "name": "polyshell",
   "main": "lib/index.js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Mikkel Fahnøe Jørgensen <mikkel@dvide.com>",
-  "description": "distributed job control and deployment framework",
+  "description": "distributed shell job control with role based configuration",
   "engines": {
     "node": ">=0.4.0"
   },

@@ -50,7 +50,7 @@ points to an action object with several other useful features including
       { breakOnError: true },
       function(err) {
         if(err)
-        // not part of Ploy
+        // not part of Polyshell
         email(this.site.adminemail, "backups failed");
     });
 

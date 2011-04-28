@@ -1,6 +1,6 @@
-# Ploy - a role based job scheduler with local and remote shell support
+# Polyshell - a role based job scheduler with local and remote shell support
 
-Ploy is primarily intended to administer server clusters, but can can be used
+Polyshell is primarily intended to administer server clusters, but can can be used
 to schedule any kind of computational jobs.
 
 Typical scenarios are to install new software, to monitor log files, to upload
@@ -8,7 +8,7 @@ new versions of web sites, and to verify that backup jobs have been completing
 successfully.
 
 The Capistrano and Vlad tools for Ruby on Rails are designed for these kind of
-jobs. Ploy is a lower level tool but forms a good foundation for creating
+jobs. Polyshell is a lower level tool but forms a good foundation for creating
 standard schedules such as deploying a new version of a web site pulled from
 the latest source control branch.
 
@@ -56,7 +56,7 @@ Tests normally dump files in a local tmp dir that is cleaned with `make clean`.
 
 ## CoffeeScript
 
-Ploy is written primarily in CoffeeScript, but that shouldn't change anything.
+Polyshell is written primarily in CoffeeScript, but that shouldn't change anything.
 If, for some reason (including debugging), a JavaScript version is needed,
 a JavaScript only module can be created in sub-folder using:
 
@@ -124,7 +124,7 @@ for more inspiration.
 
 ### Scheduling
 
-The Ploy job control scheduler is fairly simple. A schedule is an array of job
+The Polyshell job control scheduler is fairly simple. A schedule is an array of job
 names which can be run in one the following modes: `sequential`, `atomic`,
 `parallel`, or the default: `site-sequential` where different jobs may run at
 the same time but each site will only see one of the jobs at a time. These
@@ -134,25 +134,25 @@ to the various `node.js` async libraries like `seq`, `flow` and `async`, but
 with role based job distribution, reporting, configuration, unique
 identifiers, (remote) shell support, and password agents.
 
-Ploy has no dependency resolver, but it is possible to use Ploy inside a
-`Jakefile`, or similar tools. Because Ploy does not try to schedule for you,
-some other interesting options become possible. Ploy job control provides a
+Polyshell has no dependency resolver, but it is possible to use Polyshell inside a
+`Jakefile`, or similar tools. Because Polyshell does not try to schedule for you,
+some other interesting options become possible. Polyshell job control provides a
 shared object space and unique identifiers which enables the use locks and
 event queues using `node.js` standard facilities such a `EventEmitter`. The
-password agent facility of ploy is one such example. Locking is well known
+password agent facility of polyshell is one such example. Locking is well known
 from database transaction coordination and provide a good scheduling
-algorithm. This means that Ploy jobs can take off in parallel, have jobs
+algorithm. This means that Polyshell jobs can take off in parallel, have jobs
 attach to some contextual locks and wait for things to get done so they can
-proceed. Ploy does not directly provide such locking primitives (beyond the
+proceed. Polyshell does not directly provide such locking primitives (beyond the
 password agent and cache), but they would be an obvious extension module.
 
 ### Passwords
 
-Ploy does not support ssh password based account login. It is assumed that ssh
+Polyshell does not support ssh password based account login. It is assumed that ssh
 will use ssh keys without passwords, or with passwords managed by an external
 agent such as `ssh-agent`.
 
-Ploy does, however, support `sudo` password prompts after ssh login. In the
+Polyshell does, however, support `sudo` password prompts after ssh login. In the
 basic form a shell detects a sudo prompt and issues a silent prompt to the
 user console.
 

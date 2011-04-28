@@ -3,7 +3,7 @@
 An action is an anonymous function with no arguments that is added to a job
 using the `jobs.add` method:
 
-    jobs = require('ploy').jobs();
+    jobs = require('polyshell').jobs();
 
     jobs.add('rollback', function() {
       this.report("this function is the rollback action");
@@ -12,7 +12,7 @@ using the `jobs.add` method:
 A job can have multiple actions in different roles. This can, for example, be
 used to add OS specific actions:
 
-    jobs = require('ploy').jobs();
+    jobs = require('polyshell').jobs();
     jobs.sites.add('d1', 'debian', { host: 'd1.example.com' });
     jobs.sites.add('d2', 'debian', { host: 'd2.example.com' });
     jobs.sites.add('c1', 'centos', { host: 'c1.example.com' });

@@ -31,7 +31,7 @@ a cache for sites in the given roles.
 Creates a collection of environment objects indexed by name and organised
 by roles:
 
-    sites = require('ploy').sites();
+    sites = require('polyshell').sites();
 
 We use the term `site` loosely to reference a site name, the configuration
 object of a site, or the physical location represented by the name.
@@ -39,16 +39,16 @@ object of a site, or the physical location represented by the name.
 Note: `sites()` creates a generic environments collection with role support.
 The environments collection can by used for a number of other purposes:
 
-    var sites = require('ploy').sites();
+    var sites = require('polyshell').sites();
 
     // the above is equivalent to:
 
-    var envs = require('ploy').envs();
+    var envs = require('polyshell').envs();
 
 ### sites.add(names, [roles], [config], [merge])
 
 
-    var sites = require('ploy').sites();
+    var sites = require('polyshell').sites();
 
     sites.add('example', 'test', { host: 'test.example.com' });
     sites.add('host1', { host: 'www1.example.com' });
@@ -94,7 +94,7 @@ the site name. It cannot be overridden, but it can be changed for "personal" use
 without ill-effects after calling `sites.get()`.
 
 
-    var sites = require('ploy').sites();
+    var sites = require('polyshell').sites();
 
     sites.add('foo', { name: "bar", x: "1" });
     sites.get('foo');
@@ -132,7 +132,7 @@ the site is not present.
 
 `name` : name of site.
 
-    var sites = require('ploy').sites()
+    var sites = require('polyshell').sites()
     
     sites.add('ex', 'www', { host: "app.example.com" });
     sites.get('ex');
@@ -175,16 +175,16 @@ Sites are used by the job controller. The job controller automatically
 creates a sites collection if one is not being passed when the job controller
 is created:
 
-    var jobs = require('ploy').jobs();
+    var jobs = require('polyshell').jobs();
     var sites = jobs.sites;
 
 or, to share sites between different job controllers:
 
-    var ploy = require('ploy');
-    var sites = ploy.sites();
+    var polyshell = require('polyshell');
+    var sites = polyshell.sites();
     
-    bar jobs = ploy.jobs(sites);
+    bar jobs = polyshell.jobs(sites);
       // sites === jobs.sites
       
-    jobs2 = ploy.jobs(sites);
+    jobs2 = polyshell.jobs(sites);
       // sites === jobs2.sites
