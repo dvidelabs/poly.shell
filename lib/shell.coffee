@@ -16,36 +16,54 @@ spawn = (cmd, args, opts, cb) ->
   else if typeof opts == 'function'
       cb = opts
       opts = {}
-  if opts.log
-    console.log "#{name} : #{cmd} #{args.join(' ')}"
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
+  out = opts.outputStream or process.stdout
+  logout = opts.logStream or process.stdout
+  log = buffer ->
+    return unless opts.log
+    logout.write buffer
+    logout.flush()
+
+  log "#{name} : #{cmd} #{args.join(' ')}"
   child.on('exit', cb) if cb
   child.stdout.on 'data', (data) ->
-    return process.stdout.write data unless pwa
+    return out.write data unless pwa
     ascii = data.asciiSlice 0
-    process.stdout.flush()
+    out.flush()
     if ascii.indexOf(pwa.prompt) < 0
-      return process.stdout.write data  
+      return out.write data  
     else
       pwa.getPassword (err, pw) ->
         if err
-          console.log err if opts.log
+          log err
           process.kill child.pid
           process.kill process.pid if err == 'SIGINT'
           cb err
         else if child.stdin.writable
-          console.log "writing password to #{name}" if opts.log
+          log "writing password to #{name}"
           child.stdin.write pw + "\n"
         else
           err = 'could not write password'
           process.kill child.pid
-          console.log err if opts.log
+          log err
           cb err
-      # note: apparently the write below must be after the call to
+
+      # TODO: 
+      # We currently strip password prompt and feeds the buffer to console with
+      # a replaced prompt (removing the confusing unique prompt identifier).
+      # We should only write the prompt to the console, and everything else except the
+      # unique prompt to the output stream which may, or may not, be the console.
+      # but since the stream is binary, we might not want to perform a toString.replace
+      # as we currently do, so we need to be more careful about how to go about this.
+      # To complicate matters, it will likely work as is because the prompt arrives
+      # in its own buffer chunk, but that may not always be the case, especially over ssh.
+      # Hmm: perhaps buffer.asciiSplice(pwa.prompt, "") will work (splice, not slice).
+      
+      # NOTE: apparently the write below must be after the call to
       #       pwa.getPassword (or the equivalent require('./password).readSilentLine).
       #       otherwise the password is not accepted for some reason
-      process.stdout.write ("#{name} prompts for password\n" + data.toString().replace(pwa.prompt, "Password:"))
+      console.log("#{name} prompts for password\n" + data.toString().replace(pwa.prompt, "Password:"))
   child.stderr.on 'data', (data) ->
     ascii = data.asciiSlice 0
     if /^execvp\(\)/.test ascii
