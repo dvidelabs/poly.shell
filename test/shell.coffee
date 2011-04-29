@@ -25,9 +25,15 @@ module.exports = {
       sh.run "echo hello, world!", ->
         outStream.destroy()
         logStream.destroy()
-        result = fs.readFileSync outfile
-        assert.equal result.toString(), "hello, world!\n"
-        console.log "reading log output:\n#{fs.readFileSync logfile}"
+        # timeout is a hack, but otherwise we have to listen for a kernel flush
+        # event of the outStream - without timeout the test generally passes
+        # in isolation, but not always running async with many other tests
+        # the timeout should fix that.
+        setTimeout((->
+          result = fs.readFileSync outfile
+          assert.equal result.toString(), "hello, world!\n"
+          console.log "reading log output:\n#{fs.readFileSync logfile}"
+          ), 100);
     shell().run [
       "mkdir -p #{base}"
       "rm -f #{outfile} #{logfile}"], ->
