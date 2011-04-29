@@ -133,6 +133,9 @@ The same applies to logging with the `option.logStream` option when
           console.log capture();
     });
 
+In the above we redirected the output stream to nothing in order to silence the output
+and capture it instead. The shell option `options.silent` has the same effect.
+
 Standard Node.js Writable streams can also be used as outStream and logStream objects.
 
 ### sudo
@@ -247,6 +250,9 @@ options.
 
 - `options.sh`: optional name for the shell to use instead of the
   environment SHELL variable.
+
+- `options.silent`: redirect the output stream to nothing, also
+  when `outStream` has been set.
 
 - `options.ssh`: optional alternative ssh command to use for remote
   access.

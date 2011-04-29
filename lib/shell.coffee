@@ -33,7 +33,10 @@ spawn = (cmd, args, opts, cb) ->
       capture.push buf.slice 0, caplimit - capsize 
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
-  out = opts.outStream or process.stdout
+  if opts.silent
+    out = { write: -> }
+  else
+    out = opts.outStream or process.stdout
   logout = opts.logStream or process.stdout
   log = (buffer) ->
     return unless opts.log
@@ -116,6 +119,7 @@ class Shell
     @outStream = opts.outStream
     @logStream = opts.logStream
     @captureLimit = opts.captureLimit ? 64 * 1024
+    @silent = opts.silent
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
@@ -146,7 +150,14 @@ class Shell
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     args = @args.concat [cmd.toString()]
-    spawn @shell, args, {name: @name, log: @log, captureLimit, outStream: @outStream, logStream: @logStream }, _cb
+    spawn @shell, args, {
+      name: @name
+      log: @log
+      captureLimit
+      outStream: @outStream
+      logStream: @logStream
+      silent: @silent
+    }, _cb
     this
 
   # on local systems calls a process directly bypassing the shell
@@ -183,12 +194,13 @@ class Shell
     args = args.concat [cmd.toString()]
     child = cpspawn
     spawn @shell, args, {
-        name: @name
         passwordAgent: pwa
+        name: @name
         log: @log
+        captureLimit
         outStream: @outStream
         logStream: @logStream
-        captureLimit
+        silent: @silent
       }, _cb
     this
 
