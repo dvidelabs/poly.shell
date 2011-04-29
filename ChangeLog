@@ -1,8 +1,9 @@
 0.1.1 Ongoing:
-      
+
 * Redirect shell log and output to custom streams.
-* Capture shell output for shell user.
+* Capture shell output for shell.run callback.
 * Split documentation into logical API units
+* Updated CLA
 
 2011.04.27, Version 0.1.0
 

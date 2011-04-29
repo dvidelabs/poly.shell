@@ -16,6 +16,21 @@ spawn = (cmd, args, opts, cb) ->
   else if typeof opts == 'function'
       cb = opts
       opts = {}
+  capture = []
+  capsize = 0
+  caplimit = opts.captureLimit or 0
+  readcapture = ->
+    s = ""
+    for buf in capture
+      s += buf.toString()
+    return s
+  # capture buffers, but don't convert them unless the user actually wants them
+  addcapture = (buf) ->
+    return if capsize == caplimit
+    if buf.length + capsize < caplimit
+      capture.push buf
+    else
+      capture.push buf.slice 0, caplimit - capsize 
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
   out = opts.outStream or process.stdout
@@ -26,13 +41,16 @@ spawn = (cmd, args, opts, cb) ->
     logout.flush()
 
   log "#{name} : #{cmd} #{args.join(' ')}"
-  child.on('exit', cb) if cb
+  child.on('exit', (err) -> cb err, readcapture) if cb
   child.stdout.on 'data', (data) ->
-    return out.write data unless pwa
+    unless pwa
+      addcapture data
+      return out.write data unless pwa
     ascii = data.asciiSlice 0
     out.flush()
     if ascii.indexOf(pwa.prompt) < 0
-      return out.write data  
+      addcapture data
+      return out.write data
     else
       pwa.getPassword (err, pw) ->
         if err
@@ -97,6 +115,7 @@ class Shell
       opts = host: opts
     @outStream = opts.outStream
     @logStream = opts.logStream
+    @captureLimit = opts.captureLimit or 64 * 1024
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
@@ -120,13 +139,14 @@ class Shell
   run: (cmd, cb) ->
     if /^(\s*)sudo\s/.test cmd
       return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
-    _cb = (ec) => cb.call(this, ec) if cb
+    _cb = (ec, readcapture) => cb.call(this, ec, readcapture) if cb
+    captureLimit = @captureLimit if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     args = @args.concat [cmd.toString()]
-    spawn @shell, args, {name: @name, log: @log, outStream: @outStream, logStream: @logStream }, _cb
+    spawn @shell, args, {name: @name, log: @log, captureLimit, outStream: @outStream, logStream: @logStream }, _cb
     this
 
   # on local systems calls a process directly bypassing the shell
@@ -150,6 +170,7 @@ class Shell
   # cmd as array is not support, unlike run
   # (better create a script for sudoing multiple commands)
   sudo: (cmd, cb) ->
+    captureLimit = @captureLimit if cb
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
       throw new Error "sudo doesn't allow cmd as array"
@@ -167,6 +188,7 @@ class Shell
         log: @log
         outStream: @outStream
         logStream: @logStream
+        captureLimit
       }, _cb
     this
 

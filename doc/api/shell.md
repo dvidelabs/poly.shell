@@ -73,6 +73,68 @@ and shells without job control.
 Shells can also be accessed from within job actions, see `jobs.add`,
 `jobs.run`.
 
+### Callbacks
+
+Shells run commands as background processes. Callbacks can be used to wait
+for completion with a numeric error code:
+
+    var shell = require('polyshell').shell;
+    
+    shell.run("ls");
+    shell.run("ls", function() { console.log "done"; });
+    shell.run("ls", function(ec) {
+      if(ec)
+        console.log("ls failed with error code: " + err);
+      else
+        console.log("done");
+
+### Capturing Output
+
+By default shells output all commands to `process.stdout` and also captures the
+output to a buffer for use in callbacks:
+
+    var shell = require('polyshell').shell;
+
+    shell().run("ls", function(ec, capture) {
+        if(!ec)
+          console.log("output was: " + capture() + "!");
+    }
+
+Notice that `capture` is a function that we call to access the captured
+output. This converts the internal buffers to a string while avoiding
+the conversion for commands that do not need it.
+
+The capture is limited to 64K, but can be changed using the
+`option.captureLimit` in the Shell constructor (this is also a site
+configuration option). Any output beyond the limit will not show up in
+the output() function, but will still be written to the output stream.
+Capturing can be disabled by setting `captureLimit = 0` If no callback
+is given, output is not captured at all, but still written to the output
+stream.
+
+### Redirecting Output
+
+The output stream can be changed or nulled by adding an object with a
+write method as the `option.outStream` property (also a site configuration).
+The same applies to logging with the `option.logStream` option when
+`option.log` is true:
+
+    var shell = require('polyshell').shell;
+    var logger = { write: function(buffer) { console.log buffer } };
+    var devnull = { write: function() {} };
+
+    shell({
+      outStream: devnull,
+      logStream: logger,
+      captureLimit: 1024 * 1024 * 2
+    }).run("ls",
+      function(ec, capture) {
+        if(!ec)
+          console.log capture();
+    });
+
+Standard Node.js Writable streams can also be used as outStream and logStream objects.
+
 ### sudo
 
 The shell has a `sudo` method to detect password prompts and locally prompt
@@ -153,15 +215,30 @@ options.
   arguments to ssh before the command to execute (these arguments are
   for ssh, not the command being run by ssh).
 
+- `options.captureLimit`: amount of output to capture in buffers given
+  to `shell.run` callback -- see `shell.run`. Defaults to 64K.
+  No output is captured when `options.captureLimit = 0`.
+  All output is streamed to `option.outStream` or `process.stdout`
+  regardless.
+
 - `options.issuer`: optional name used for logging, overrides `host`
   and `name` for this purpose. Set by job control when creating a
   shell for a job action with the actions `this.issuer` property. -
   `options.log`: optional true to enable logging (set by job controls
   log setting for job action shells).
+  
+- `options.logStream`: Like `options.outStream` for logging. Only used when
+  `options.log` is true.
 
 - `options.name`: optional informative system name used for logging
   (not a user name for remote login).
 
+- `options.outStream`: optional stream object that must be an object with
+  function named write taking a buffer as argument, for example:
+  `var devnull = { write: function(buffer) {} };`
+  Node.js WritableStreams can also be used. Does not capture `sudo` password
+  prompts which are always directed to `process.stdout`.
+    
 - `options.passwordCache`: enables sharing of passwords between
   multiple shells - see `Password Agents`.
 
@@ -177,31 +254,25 @@ options.
 - `options.user`: optional user name for ssh (can also be set in
   `.ssh/config`).
 
-- `options.outStream`: optional writeable stream to receive output
-  instead instead of `process.stdout`.
-
-- `options.logStream`: optional writeable stream to receive log output instead
-  instead of `process.stdout`. Logging only happens if `options.log == true`.
-
-Example redirecting output stream:
-
-
-
-
-### shell.run(cmd, [callback(err)]
+### shell.run(cmd, [callback(err, capture())])
 
 `cmd` : a command string to be executed by a local or remote shell. If given
 as array, the individual commands are joined by ' && ' before being given to
 the ssh command - no real magic or extra parsing here.
 
-`callback(err)` : optional callback to know when the shell has completed.
+`callback(err, capture)` : optional callback to know when the shell has completed.
 Especially useful under job control to ensure that a job action does not
 complete before the shell does, and that the action fails if the shell does.
-If no callback is given, the shell continues as a background process. The
-callback is compatible with the callback acquired by job actions
+If shell is created with `option.captureLimit = 0`, capture returns the empty string,
+otherwise up to `options.captureLimit` bytes of buffered output, or default 64K.
+If no callback is given, the shell continues as a background process and no output
+is captured (but still streamed to the shells output stream).
+`capture` is a function that converts captured buffers to a string:
+`var myoutputstring = capture()`.
+The callback is compatible with the callback acquired by job actions
 `this.async()`.
 
-If the shell command begins with sudo, sudo is stripped from the command and
+If the shell command begins with "sudo", "sudo" is stripped from the command and
 the rest is passed on to the `shell.sudo` helper command.
 
 ### shell.setPassword(password)
@@ -227,7 +298,7 @@ the password entry. Issues the error string 'SIGINT' if the user types
 'Ctrl+C' and should normally be used to issue a
 `process.kill(process.pid)`. Otherwise similar to setPassword.
 
-### shell.sudo(cmd, [callback(err)])
+### shell.sudo(cmd, [callback(err, capture())])
 
 Will detect a sudo password prompt using a globally unique prompt name and
 replace that prompt with 'Password:' and display it the user. If there is a
@@ -238,6 +309,9 @@ before bugging the user. The `err` callback should be tested for the string
 If sudo doesn't ask for a prompt, the operation behaves like a normal
 `shell.run` command. If a password is prompted, the operation proceeds like a
 normal `shell.run` command once the password is accepted.
+
+Password prompts are directed to process.stdout but are not included in the
+output streamed to `options.outStream` and is not buffered in `capture()`.
 
 If there is another password prompt pending with the same password agent, sudo
 will wait for that prompt to complete and then use the answer similar to an
