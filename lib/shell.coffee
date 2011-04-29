@@ -11,49 +11,63 @@ spawn = (cmd, args, opts, cb) ->
   opts = {} unless opts
   name = opts.issuer or opts.name or ""
   if typeof args == 'function'
-      cb = args
-      args = []
+    cb = args
+    args = []
   else if typeof opts == 'function'
-      cb = opts
-      opts = {}
-  capture = []
-  capsize = 0
+    cb = opts
+    opts = {}
+  outcap = []
+  errcap = []
+  outcap.capsize = 0
+  errcap.capsize = 0
   caplimit = opts.captureLimit or 0
-  readcapture = ->
+  readcapture = (cap, encoding) ->
     s = ""
-    for buf in capture
-      s += buf.toString()
+    for buf in cap
+      s += buf.toString(encoding)
     return s
   # capture buffers, but don't convert them unless the user actually wants them
-  addcapture = (buf) ->
-    return if capsize == caplimit
-    if buf.length + capsize < caplimit
-      capture.push buf
+  addcapture = (cap, buf) ->
+    return if cap.capsize == caplimit
+    if buf.length + cap.capsize < caplimit
+      cap.push buf
+      cap.capsize += buf.length
     else
-      capture.push buf.slice 0, caplimit - capsize 
+      cap.push buf.slice 0, caplimit - cap.capsize
+      cap.capsize = caplimit
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
   if opts.silent
-    out = { write: -> }
+    outstream = { write: -> }
+    errstream = { write: -> }
   else
-    out = opts.outStream or process.stdout
-  logout = opts.logStream or process.stdout
+    outstream = opts.outStream or process.stdout
+    # Node.js currently has no process.stderr
+    errstream = opts.errStream or process.stdout 
   log = (buffer) ->
     return unless opts.log
-    logout.write buffer + '\n'
-    logout.flush()
-
+    if opts.logStream
+      # user should add newline and flush if so desired
+      opts.logStream.write buffer
+    else
+      console.log buffer
   log "#{name} : #{cmd} #{args.join(' ')}"
-  child.on('exit', (err) -> cb err, readcapture) if cb
+  if cb
+    child.on('exit', (err, encoding) -> cb err, {
+      out: (type) -> readcapture(outcap, encoding)
+      err: (type) -> readcapture(errcap, encoding)
+    });
   child.stdout.on 'data', (data) ->
     unless pwa
-      addcapture data
-      return out.write data unless pwa
+      addcapture outcap, data
+      outstream.write data
+      return
     ascii = data.asciiSlice 0
     out.flush()
     if ascii.indexOf(pwa.prompt) < 0
-      addcapture data
-      return out.write data
+      addcapture outcap, data
+      outstream.write data
+      return
     else
       pwa.getPassword (err, pw) ->
         if err
@@ -79,7 +93,6 @@ spawn = (cmd, args, opts, cb) ->
       # as we currently do, so we need to be more careful about how to go about this.
       # To complicate matters, it will likely work as is because the prompt arrives
       # in its own buffer chunk, but that may not always be the case, especially over ssh.
-      # Hmm: perhaps buffer.asciiSplice(pwa.prompt, "") will work (splice, not slice).
       
       # NOTE: apparently the write below must be after the call to
       #       pwa.getPassword (or the equivalent require('./password).readSilentLine).
@@ -93,7 +106,9 @@ spawn = (cmd, args, opts, cb) ->
       console.log "expected error from ssh -t -t operation:" if opts.log
       console.log "  " + data.toString() if opts.log
     else
-      console.log data.toString()
+      addcapture errcap, data
+      errstream.write data
+      return
 
 # see doc/api/shell
 class Shell
@@ -118,6 +133,7 @@ class Shell
       opts = host: opts
     @outStream = opts.outStream
     @logStream = opts.logStream
+    @errStream = opts.errStream
     @captureLimit = opts.captureLimit ? 64 * 1024
     @silent = opts.silent
     if opts.host
@@ -156,6 +172,7 @@ class Shell
       captureLimit
       outStream: @outStream
       logStream: @logStream
+      errStream: @errStream
       silent: @silent
     }, _cb
     this
@@ -200,6 +217,7 @@ class Shell
         captureLimit
         outStream: @outStream
         logStream: @logStream
+        errStream: @errStream
         silent: @silent
       }, _cb
     this

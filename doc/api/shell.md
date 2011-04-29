@@ -130,11 +130,18 @@ The same applies to logging with the `option.logStream` option when
     }).run("ls",
       function(ec, capture) {
         if(!ec)
-          console.log capture();
+          console.log capture.out();
     });
 
 In the above we redirected the output stream to nothing in order to silence the output
 and capture it instead. The shell option `options.silent` has the same effect.
+
+`options.errStream` and `capture.err()` behave similar to the output stream. The
+error stream obeys `options.silent` and `options.captureLimit` the same as the outStream.
+
+The `options.logStream` has an option `logStream.flush()` method that
+is called after each log entry if present. This to ensure logging is
+captured in the event of a system down event.
 
 Standard Node.js Writable streams can also be used as outStream and logStream objects.
 
@@ -222,7 +229,10 @@ options.
   to `shell.run` callback -- see `shell.run`. Defaults to 64K.
   No output is captured when `options.captureLimit = 0`.
   All output is streamed to `option.outStream` or `process.stdout`
-  regardless.
+  regardless. The error stream is captured separately with the same limit.
+
+- `options.errStream`: optional error stream object similar to outStream.
+  Produce no output when `options.silent` is true.
 
 - `options.issuer`: optional name used for logging, overrides `host`
   and `name` for this purpose. Set by job control when creating a
@@ -231,8 +241,9 @@ options.
   log setting for job action shells).
   
 - `options.logStream`: Like `options.outStream` for logging. Only used when
-  `options.log` is true.
-
+  `options.log` is true. Defaults to:
+   `{ write: function(data) { console.log(data.toString()); }}`.
+   
 - `options.name`: optional informative system name used for logging
   (not a user name for remote login).
 
@@ -240,7 +251,8 @@ options.
   function named write taking a buffer as argument, for example:
   `var devnull = { write: function(buffer) {} };`
   Node.js WritableStreams can also be used. Does not capture `sudo` password
-  prompts which are always directed to `process.stdout`.
+  prompts which are always directed to `process.stdout`. Is not called
+  when `options.silent` is true.
     
 - `options.passwordCache`: enables sharing of passwords between
   multiple shells - see `Password Agents`.
@@ -251,8 +263,8 @@ options.
 - `options.sh`: optional name for the shell to use instead of the
   environment SHELL variable.
 
-- `options.silent`: redirect the output stream to nothing, also
-  when `outStream` has been set.
+- `options.silent`: redirect the output and error stream to nothing, also
+  when `outStream` or `errStream` has been set. Does not affect `logStream`.
 
 - `options.ssh`: optional alternative ssh command to use for remote
   access.
