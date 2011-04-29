@@ -3,6 +3,27 @@ fs = require 'fs'
 shell = require('..').shell
 
 module.exports = {
+  captureShell: ->
+    sh = shell()
+    sh.run "echo hello, world!", (ec, capture) ->
+      assert.equal "hello, world!\n", capture()
+      
+  capturehighLimitShell: ->
+    sh = shell(captureLimit: 100)
+    sh.run "echo hello, world!", (ec, capture) ->
+      assert.equal "hello, world!\n", capture()
+      
+  captureLimitShell: ->
+    sh = shell(captureLimit: 5)
+    sh.run "echo hello, world!", (ec, capture) ->
+      assert.equal "hello", capture()
+
+  captureLimit0Shell: ->
+    # this actually disables capturing, but shouldn't break our interface
+    sh = shell(captureLimit: 0)
+    sh.run "echo hello, world!", (ec, capture) ->
+      assert.equal "", capture()
+    
   redirectedShell: ->
     base = "#{__dirname}/../tmp/"
     outfile = "#{base}sudoredirected-shell.out"

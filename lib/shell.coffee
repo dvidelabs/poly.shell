@@ -115,7 +115,7 @@ class Shell
       opts = host: opts
     @outStream = opts.outStream
     @logStream = opts.logStream
-    @captureLimit = opts.captureLimit or 64 * 1024
+    @captureLimit = opts.captureLimit ? 64 * 1024
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
