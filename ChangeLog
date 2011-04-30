@@ -1,5 +1,6 @@
 0.1.1 Ongoing:
 
+* rsync support.
 * Redirect shell log, err, and out streams.
 * Capture shell out, err streams.
 * Split documentation into logical API units

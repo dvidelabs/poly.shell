@@ -200,7 +200,7 @@ In the above example, we have chosen to reset the password after the shell retur
 
 ## Shell API
 
-### shell([host | options])
+### shell([host], [options])
 
 Creates a new shell object, but does not run anything or consume any
 significant resources. Holds configuration data needed to start a local shell,
@@ -208,11 +208,13 @@ or a remote shell. Also holds information for password caching:
 
     var shell = require('polyshell').shell;
     var local = shell();
-    var host1 = shell({ host: "example.com", log: true });
+    var host1 = shell("example.com", { log: true });
     var host2 = shell("example.com");
+    var host3 = shell({ host: "example.com", port: 10000, user: "beatrice" });
 
-If neither `host` nor `options` are given, a local shell is created. Note that
-`localhost` is not a local shell, but rather ssh access to the local system.
+If neither `host` nor `options` are given, a local shell is created. If both are
+given, 'host' takes priority over `options.host`. Do not use `localhost` to
+create a local shell, it would connect via ssh.
 
 `host` : the name of the host. Typically matches an entry in .ssh/config with
 user name and other real host domain or IP address. 'host' is also used as the
@@ -220,10 +222,6 @@ default shell name which is used for logging purposes and can be overridden in
 options.
 
 `options`:
-
-- `options.args`: (a string or array of strings), optional extra
-  arguments to ssh before the command to execute (these arguments are
-  for ssh, not the command being run by ssh).
 
 - `options.captureLimit`: amount of output to capture in buffers given
   to `shell.run` callback -- see `shell.run`. Defaults to 64K.
@@ -264,13 +262,24 @@ options.
   error stream open.
   
 - `options.sh`: optional name for the shell to use instead of the
-  environment SHELL variable.
+  environment SHELL variable when running local systems.
 
+- `options.shargs`: (a string or array of strings), optional extra
+  arguments to ssh before the command to execute (these arguments are
+  for ssh, not the command being run by ssh).
+    
 - `options.silent`: redirect the output and error stream to nothing, also
   when `outStream` or `errStream` has been set. Does not affect `logStream`.
 
+
 - `options.ssh`: optional alternative ssh command to use for remote
   access.
+
+- `options.sshargs`: optional extra arguments to ssh.
+
+- `options.rsync`: optional alternative rsync command.
+
+- `options.rsyncargs`: optional extra rsync arguments.
 
 - `options.user`: optional user name for ssh (can also be set in
   `.ssh/config`).
@@ -295,29 +304,6 @@ The callback is compatible with the callback acquired by job actions
 
 If the shell command begins with "sudo", "sudo" is stripped from the command and
 the rest is passed on to the `shell.sudo` helper command.
-
-### shell.setPassword(password)
-
-Sets the password cache such that the first `sudo` prompt will not ask
-the user unless the password is incorrect.
-
-### shell.resetPassword()
-
-Clears the password cache.
-
-### shell.promptPassword(prompt, [callback(err)])
-
-`prompt`: optional string to display to the user, defaults to nothing,
-otherwise write prompt to `process.stdout`, also when shell output has
-been redirected.
-
-Waits for user input unless the password cache already has the password,
-or waits for another prompt if the cache says one is active.
-Prompts the user for a password without echoing the input text to the
-console. Callback makes it possible to wait for the user to complete
-the password entry. Issues the error string 'SIGINT' if the user types
-'Ctrl+C' and should normally be used to issue a
-`process.kill(process.pid)`. Otherwise similar to setPassword.
 
 ### shell.sudo(cmd, [callback(err, capture())])
 
@@ -349,11 +335,120 @@ shell commands.
 
 ### shell.log
 
-Enable logging by setting value to true.
-Reflects `options.log` pass when shell was created.
+Property that can be read and set. Enables similar top `options.log`.
+
+### shell.options
+
+The options given as input. Gives access to a copy of site configuration when
+the shell is created by a job action, see `jobs()`.
+
+### shell.remote
+
+A read-only flag that is true if the shell is running on a remote
+system. Set if `options.host` has been specified.
+
+### shell.upload(sources, dest, [cb])
+
+Calls rsyncup with the arguments ['-azP', '--delete']. 
+
+**Warning**: `dest` will have all files removed that do not
+match the source list.
+
+### shell.download(sources, dest, [cb])
+
+Calls rsyncdown with the arguments ['-azP', '--delete']. 
+
+**Warning**: `dest` will have all files removed that do not
+match the source list.
+
+### shell.rsyncdown(sources, dest, [args], [cb])
+
+Transfers files from remote system to local system.
+
+See also `shell.rsyncup`.
+
+`args`: flags passed to rsync before `sources`.
+
+`sources: relative to remote host user. Remote host prefix is added
+before passed to rsync. If running in a local shell, `sources` are
+relative to the current working directory.
+
+`dest`: destination file or folder (depending on args) relative to
+current working directory on local system.
+
+`cb`: callback similar to `shell.run`.
+
+### shell.rsyncup(sources, dest, [args], [cb])
+
+Transfers local files to remote system.
+
+`rsync` operation over .ssh that respects `shell.options.user` and
+`shell.options.port` as well as `shell.options.rsync` and
+`shell.options.rsyncargs`. Add extra arguments with `args`.
+
+Adds site destination to `dest` argument.
+
+`args`: optional rsync argument or (nested) array of extra arguments presented
+to `rsync` before the `sources` list. Defaults to file to file transfer, but
+can  for example create a mirror using `args = ['-azP', '--delete']`
+where `dest` is a directory.
+
+`sources`: pathname or (nested) array of pathnames on the local system relative
+to current working directory.
+
+`dest`: pathname for remote site relative to user home. If running in a local shell, 
+relative to current working directory.
+
+`cb`: callback similar to `shell.run`.
+
+### shell.shellCmd
+
+The command used to run the shell, typically "sh" or the SHELL environment
+variable for local systems, and "ssh" for remote systems. Affected by
+`options.ssh` and `options.shell` for local and remote systems respectively.
+See also `shel.shellArgs`.
+
+### shell.shellArgs
+
+Array of arguments passed to `spawn` when running shell commands. For
+remote shells thic can be used with the `rsync -e` option together with
+`shell.Cmd` when a user name or port number is required. `shell.rsync`
+implements this automatically.
+
+### shell.spawn(cmd, args, [cb])
+
+Executes a local system command, also when the shell is remote.
+The callback works like `shell.run` and shell.run is roughly `spawn`
+with `sh` or `ssh` as first argument. Useful for running source
+control and rsync commands to access the remote system.
+
+Returns child process object, including child.pid.
 
 ### shell.passwordCache
 
 property equal to assigned options.passwordCache, or a internally created
 password cache object if none were provided. The property can be used to
 initialise new shells that should share the same password.
+
+### shell.setPassword(password)
+
+Sets the password cache such that the first `sudo` prompt will not ask
+the user unless the password is incorrect.
+
+### shell.resetPassword()
+
+Clears the password cache.
+
+### shell.promptPassword(prompt, [callback(err)])
+
+`prompt`: optional string to display to the user, defaults to nothing,
+otherwise write prompt to `process.stdout`, also when shell output has
+been redirected.
+
+Waits for user input unless the password cache already has the password,
+or waits for another prompt if the cache says one is active.
+Prompts the user for a password without echoing the input text to the
+console. Callback makes it possible to wait for the user to complete
+the password entry. Issues the error string 'SIGINT' if the user types
+'Ctrl+C' and should normally be used to issue a
+`process.kill(process.pid)`. Otherwise similar to setPassword.

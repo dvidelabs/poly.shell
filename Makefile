@@ -1,4 +1,4 @@
-.PHONY: js clean dep cleandep test
+.PHONY: js clean dep cleandep test rtest
 
 COFFEE=node_modules/coffee-script/bin/coffee
 
@@ -33,3 +33,6 @@ cleandep:
 test: dep
 	mkdir -p tmp
 	@expresso
+
+rtest: dep
+	@expresso rtest/*

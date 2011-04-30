@@ -1,6 +1,7 @@
 cpspawn = require('child_process').spawn
 password = require './password'
 util = require './util'
+_ = require 'underscore'
 
 # TODO:
 # Change current working directory of shell
@@ -20,7 +21,7 @@ spawn = (cmd, args, opts, cb) ->
   errcap = []
   outcap.capsize = 0
   errcap.capsize = 0
-  caplimit = opts.captureLimit or 0
+  caplimit = opts.captureLimit ?  64 * 1024
   caplimit = 0 unless cb
   readcapture = (cap, encoding) ->
     s = ""
@@ -112,104 +113,92 @@ spawn = (cmd, args, opts, cb) ->
       addcapture errcap, data
       errstream.write data
       return
+  return child
 
 # see doc/api/shell
 class Shell
-  
-  constructor: (opts) ->
+  # shell([host], [opts])
+  constructor: (host, opts) ->
     args = []
-    if typeof opts == 'string'
-      opts = {host: opts}
+    if host and opts
+      opts = _.clone opts
+      opts.host = host
+    else if host
+      if typeof host == 'string'
+        opts = { host }
+      else
+        opts = host
     opts = {} unless opts
+    @options = opts
     @log = opts.log
     @passwordCache = opts.passwordCache or password.cache()
-    pushCustomArgs = ->
-      if opts.args
-        switch typeof opts.args
+    pushExtraArgs = (extra, name) ->
+      if extra
+        switch typeof extra
           when 'string'
-            args.push opts.args
+            args.push extra
           when 'array'
-            args = args.concat opts.args
+            args = args.concat extra
           else
-            throw new Error "bad argument, opts.args must be string or array (was #{typeof opts.args})"
-    if typeof opts == 'string'
-      opts = host: opts
-    @outStream = opts.outStream
-    @logStream = opts.logStream
-    @errStream = opts.errStream
-    @captureLimit = opts.captureLimit ? 64 * 1024
-    @silent = opts.silent
-    @quiet = opts.quiet
+            throw new Error "bad argument, #{name} must be string or array"
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
-      @shell = opts.ssh or 'ssh'
+      @shellCmd = opts.ssh or 'ssh'
       if opts.port
         args.push "-p"
         args.push opts.port.toString()
       if opts.user
         args.push "-l"
         args.push opts.user
-      pushCustomArgs()
+      pushExtraArgs(opts.sshargs, 'options.sshargs')
       args.push opts.host
     else
       @name = opts.issuer or opts.name or "local"
       @remote = false
-      @shell = opts.shell or process.env.shell or 'sh'
-      pushCustomArgs()
+      @shellCmd = opts.sh or process.env.shell or 'sh'
+      pushExtraArgs(opts.shargs, 'options.shargs')
       args.push "-c"
-    @args = args
+    @shellArgs = args
 
   _spawnopts: (extra) ->
+    options = @options
     opts = {
       name: @name
       log: @log
-      outStream: @outStream
-      logStream: @logStream
-      errStream: @errStream
-      silent: @silent
-      quiet: @quiet
-      captureLimit: @captureLimit
+      outStream: options.outStream
+      logStream: options.logStream
+      errStream: options.errStream
+      silent: options.silent
+      quiet: options.quiet
+      captureLimit: options.captureLimit
     }
-    util.merge(opts, extra) if extra
+    _.extend(opts, extra) if extra
     opts
     
   run: (cmd, cb) ->
     if /^(\s*)sudo\s/.test cmd
       return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
     _cb = (ec, capture) => cb.call(this, ec, capture) if cb
-    captureLimit = @captureLimit if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
-    args = @args.concat [cmd.toString()]
-    spawn @shell, args, @_spawnopts(), _cb
-    # don't return this, it suggests sequential shell().run().run(), but it is concurrent.
-    null 
+    args = @shellArgs.concat [cmd.toString()]
+    return spawn @shellCmd, args, @_spawnopts(), _cb
 
-  # on local systems calls a process directly bypassing the shell
-  # on remote systems runs via shell
-  # args should be shell escaped TODO: consider escaping inside this op
   spawn: (cmd, args, cb) ->
     if typeof args == 'function'
       cb = args
       args = []
     _cb = (ec) => cb.call(this, ec) if cb
-    if @remote
-      _args = @args.concat []
-      _args.push cmd
-      args = _args.concat args
-      cmd = @shell
-    spawn cmd, args, @_spawnopts(), _cb
-    null
+    return spawn cmd, args, @_spawnopts(), _cb
 
   # use instead of run for sudo commands
   # run also redirects commands starting with sudo
   # cmd as array is not support, unlike run
   # (better create a script for sudoing multiple commands)
   sudo: (cmd, cb) ->
-    captureLimit = @captureLimit if cb
     _cb = (ec) => cb.call(this, ec) if cb
     if cmd instanceof Array
       throw new Error "sudo doesn't allow cmd as array"
@@ -218,11 +207,41 @@ class Shell
     # -t: enable tty for sudo password prompt via ssh
     # -t -t: because our local stdin is also not tty
     pwa = password.agent @passwordCache
-    args = @args.concat ['-t', '-t', 'sudo', '-p', pwa.prompt] 
+    args = @shellArgs.concat ['-t', '-t', 'sudo', '-p', pwa.prompt] 
     args = args.concat [cmd.toString()]
-    child = cpspawn
-    spawn @shell, args, @_spawnopts({ passwordAgent: pwa}), _cb
-    null
+    return spawn @shellCmd, args, @_spawnopts({ passwordAgent: pwa}), _cb
+
+  _rsync: (args, cb) ->
+    cmd = @options.rsync ? 'rsync'
+    args = [@options.rsyncargs ? [], args]
+    if @remote
+      rsh = @shellCmd
+      rsh += "-p #{@options.port}" if @options.port
+      rsh += "-l #{@options.user}" if @options.user
+      args = ['-e', "'#{rsh}'", args]
+    args = _.flatten(args)
+    return @spawn cmd, args, cb
+
+  rsyncup: (sources, dest, args, cb) ->
+    if typeof args == 'function'
+      cb = args; args = null
+    if @remote
+      dest = @options.host + ":" + dest
+    return @_rsync [args or [], sources, dest], cb
+
+  rsyncdown: (sources, dest, args, cb) ->
+    if typeof args == 'function'
+      cb = args; args = null
+    if @remote
+      h = @options.host + ":"
+      sources = _.map(_.flatten([sources or []]), (src) -> h + src)
+    return @_rsync [args or [], sources, dest], cb
+
+  upload: (sources, dest, cb) ->
+    return @rsyncup sources, dest, ["-azP", "--delete"], cb
+
+  download: (sources, dest, cb) ->
+    return @rsyncdown sources, dest, ["-azP", "--delete"], cb
 
   # prompt user for password to preload password cache
   # not strictly needed, but may be more userfriendly
@@ -236,4 +255,4 @@ class Shell
   # prevent new commands from using old password
   resetPassword: -> @passwordCache.reset()
 
-exports.shell = (opts) -> new Shell opts
+exports.shell = (host, options) -> new Shell(host, options)
