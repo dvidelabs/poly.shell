@@ -20,7 +20,7 @@ exports.randomInt = (max) ->
 exports.uid = (len = 10, alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789') ->
   uid = ''
   n = alphabet.length
-  for i in [0..len]
+  for i in [0...len]
     uid += alphabet[Math.floor(Math.random() * n)]
   uid
 
