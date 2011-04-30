@@ -1,7 +1,7 @@
 0.1.1 Ongoing:
 
-* Redirect shell log and output to custom streams.
-* Capture shell output for shell.run callback.
+* Redirect shell log, err, and out streams.
+* Capture shell out, err streams.
 * Split documentation into logical API units
 * Updated CLA
 

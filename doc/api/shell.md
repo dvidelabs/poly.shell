@@ -232,7 +232,7 @@ options.
   regardless. The error stream is captured separately with the same limit.
 
 - `options.errStream`: optional error stream object similar to outStream.
-  Produce no output when `options.silent` is true.
+  Produces no output when `options.silent` is true.
 
 - `options.issuer`: optional name used for logging, overrides `host`
   and `name` for this purpose. Set by job control when creating a
@@ -251,15 +251,18 @@ options.
   function named write taking a buffer as argument, for example:
   `var devnull = { write: function(buffer) {} };`
   Node.js WritableStreams can also be used. Does not capture `sudo` password
-  prompts which are always directed to `process.stdout`. Is not called
-  when `options.silent` is true.
-    
+  prompts which are always directed to `process.stdout`. Produce no output
+  when `options.silent` or `options.quiet` are set.
+
 - `options.passwordCache`: enables sharing of passwords between
   multiple shells - see `Password Agents`.
 
 - `options.port`: integer port number for ssh if not the standard port
   22 (can also be set in `.ssh/config`).
 
+- `options.quiet`: redirects output stream to nothing, but leaves
+  error stream open.
+  
 - `options.sh`: optional name for the shell to use instead of the
   environment SHELL variable.
 

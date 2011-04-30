@@ -24,6 +24,10 @@ exports.uid = (len = 10, alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq
     uid += alphabet[Math.floor(Math.random() * n)]
   uid
 
+exports.merge = (x, y) ->
+  for own key, value in y
+    x[key] = y
+
 # Takes a map (object) and creates an array of one element at the given key
 # or pushes to an already existing array.
 exports.pushmap = (map, key, elem) -> a = map[key]; if a then a.push elem else map[key] = [elem]

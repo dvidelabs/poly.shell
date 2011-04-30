@@ -21,6 +21,7 @@ spawn = (cmd, args, opts, cb) ->
   outcap.capsize = 0
   errcap.capsize = 0
   caplimit = opts.captureLimit or 0
+  caplimit = 0 unless cb
   readcapture = (cap, encoding) ->
     s = ""
     for buf in cap
@@ -37,11 +38,13 @@ spawn = (cmd, args, opts, cb) ->
       cap.capsize = caplimit
   child = cpspawn cmd, args
   pwa = opts.passwordAgent
-  if opts.silent
+  if opts.quiet or opts.silent
     outstream = { write: -> }
-    errstream = { write: -> }
   else
     outstream = opts.outStream or process.stdout
+  if opts.silent
+    errstream = { write: -> }
+  else
     # Node.js currently has no process.stderr
     errstream = opts.errStream or process.stdout 
   log = (buffer) ->
@@ -136,6 +139,7 @@ class Shell
     @errStream = opts.errStream
     @captureLimit = opts.captureLimit ? 64 * 1024
     @silent = opts.silent
+    @quiet = opts.quiet
     if opts.host
       @name = opts.issuer or opts.name or opts.host
       @remote = true
@@ -149,33 +153,40 @@ class Shell
       pushCustomArgs()
       args.push opts.host
     else
-      @name = opts.issuer or opts.name or "local-system"
+      @name = opts.issuer or opts.name or "local"
       @remote = false
       @shell = opts.shell or process.env.shell or 'sh'
       pushCustomArgs()
       args.push "-c"
     @args = args
 
+  _spawnopts: (extra) ->
+    opts = {
+      name: @name
+      log: @log
+      outStream: @outStream
+      logStream: @logStream
+      errStream: @errStream
+      silent: @silent
+      quiet: @quiet
+      captureLimit: @captureLimit
+    }
+    util.merge(opts, extra) if extra
+    opts
+    
   run: (cmd, cb) ->
     if /^(\s*)sudo\s/.test cmd
       return @sudo cmd.slice(cmd.indexOf('sudo') + 4), cb
-    _cb = (ec, readcapture) => cb.call(this, ec, readcapture) if cb
+    _cb = (ec, capture) => cb.call(this, ec, capture) if cb
     captureLimit = @captureLimit if cb
     if cmd instanceof Array
       cmd = cmd.join(' && ')
     if typeof cmd != 'string'
       throw new Error "bad argument, cmd should be string or array (was #{typeof cmd})"
     args = @args.concat [cmd.toString()]
-    spawn @shell, args, {
-      name: @name
-      log: @log
-      captureLimit
-      outStream: @outStream
-      logStream: @logStream
-      errStream: @errStream
-      silent: @silent
-    }, _cb
-    this
+    spawn @shell, args, @_spawnopts(), _cb
+    # don't return this, it suggests sequential shell().run().run(), but it is concurrent.
+    null 
 
   # on local systems calls a process directly bypassing the shell
   # on remote systems runs via shell
@@ -190,8 +201,8 @@ class Shell
       _args.push cmd
       args = _args.concat args
       cmd = @shell
-    spawn cmd, args, {name: @name, log: @log}, _cb
-    this
+    spawn cmd, args, @_spawnopts(), _cb
+    null
 
   # use instead of run for sudo commands
   # run also redirects commands starting with sudo
@@ -210,17 +221,8 @@ class Shell
     args = @args.concat ['-t', '-t', 'sudo', '-p', pwa.prompt] 
     args = args.concat [cmd.toString()]
     child = cpspawn
-    spawn @shell, args, {
-        passwordAgent: pwa
-        name: @name
-        log: @log
-        captureLimit
-        outStream: @outStream
-        logStream: @logStream
-        errStream: @errStream
-        silent: @silent
-      }, _cb
-    this
+    spawn @shell, args, @_spawnopts({ passwordAgent: pwa}), _cb
+    null
 
   # prompt user for password to preload password cache
   # not strictly needed, but may be more userfriendly

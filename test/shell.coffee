@@ -16,6 +16,14 @@ module.exports = {
       assert.equal "hello, world!\n", capture.out()
       assert.equal null, outbuf
 
+  captureQuietShell: ->
+    outbuf = null
+    sh = shell(quiet:true, outStream: { 
+      write: (data) -> outbuf = data })
+    sh.run "echo hello, world!", (ec, capture) ->
+      assert.equal "hello, world!\n", capture.out()
+      assert.equal null, outbuf
+
   captureNonSilentShell: ->
     outbuf = null
     sh = shell(outStream: { 
