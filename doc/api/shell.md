@@ -198,6 +198,34 @@ user:
 
 In the above example, we have chosen to reset the password after the shell returns.
 
+### Transferring files
+
+Files can be transferred via rsync using `shell.rsyncup` and
+`shell.rsyncdown`. Here an example with `shell.rsyncup`. Notice that the shell
+inserts the target host automatically.
+
+    var host = shell("example.com");
+    var local = shell();
+    
+    local.run("mkdir -p tmp && echo hello > tmp/hello.local.test", function () {
+      host.rsyncup tmp/hello.local.test, hello.example.com.test"
+    });
+
+    Entire directories can be uploaded and downloaded using `shell.upload` and `shell.download`.
+    These are convenience functions that calls `shell.rsyncup` and `shell.rsyncdown` with
+    special arguments. See Shell API reference for more details.
+
+Note: `rsync` runs via ssh. `options.port` and `options.user`
+are passed to rsync using the rsync -e option. For example:
+
+    var host = shell("example.com", { port: 10000, user: beatrice });
+    host.rsyncup("localfile", "destfile");
+
+becomes:
+
+    $ rsync -e 'ssh -p 10000 -l beatrice' localfilename example.com:destfile
+
+
 ## Shell API
 
 ### shell([host], [options])
@@ -426,9 +454,9 @@ Returns child process object, including child.pid.
 
 ### shell.passwordCache
 
-property equal to assigned options.passwordCache, or a internally created
+Property equal to assigned options.passwordCache, or a internally created
 password cache object if none were provided. The property can be used to
-initialise new shells that should share the same password.
+initialise new shells that share the same password.
 
 ### shell.setPassword(password)
 

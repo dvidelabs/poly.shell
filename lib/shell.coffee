@@ -216,9 +216,11 @@ class Shell
     args = [@options.rsyncargs ? [], args]
     if @remote
       rsh = @shellCmd
-      rsh += "-p #{@options.port}" if @options.port
-      rsh += "-l #{@options.user}" if @options.user
-      args = ['-e', "'#{rsh}'", args]
+      rsh += " -p #{@options.port}" if @options.port
+      rsh += " -l #{@options.user}" if @options.user
+      # tricky: don't add single quotes to rsh string
+      # or the entire string becomes the ssh binary
+      args = ['-e', "#{rsh}", args]
     args = _.flatten(args)
     return @spawn cmd, args, cb
 
