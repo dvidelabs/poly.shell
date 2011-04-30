@@ -211,9 +211,9 @@ inserts the target host automatically.
       host.rsyncup tmp/hello.local.test, hello.example.com.test"
     });
 
-    Entire directories can be uploaded and downloaded using `shell.upload` and `shell.download`.
-    These are convenience functions that calls `shell.rsyncup` and `shell.rsyncdown` with
-    special arguments. See Shell API reference for more details.
+Entire directories can be uploaded and downloaded using `shell.upload` and `shell.download`.
+These are convenience functions that calls `shell.rsyncup` and `shell.rsyncdown` with
+special arguments. See Shell API reference for more details.
 
 Note: `rsync` runs via ssh. `options.port` and `options.user`
 are passed to rsync using the rsync -e option. For example:
@@ -379,15 +379,15 @@ system. Set if `options.host` has been specified.
 
 Calls rsyncup with the arguments ['-azP', '--delete']. 
 
-**Warning**: `dest` will have all files removed that do not
-match the source list.
+    Warning: 'dest' will have all files removed that do not
+    match the source list.
 
 ### shell.download(sources, dest, [cb])
 
 Calls rsyncdown with the arguments ['-azP', '--delete']. 
 
-**Warning**: `dest` will have all files removed that do not
-match the source list.
+    Warning: 'dest' will have all files removed that do not
+    match the source list.
 
 ### shell.rsyncdown(sources, dest, [args], [cb])
 
