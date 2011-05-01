@@ -72,19 +72,12 @@ and run on multiples sites:
       this.shell.run(scripts, this.async());
     });
     
-    put = function(from, to, cb) {
-      var host = "";
-      if(this.site && this.site.host)
-        host = this.site.host + ":";
-      shell().run("rsync -r " + from + " " + host + to, cb);
-    }
-    
     jobs.add('update', 'app', function() {
       env = sites.get('local');
       // run two concurrent rsyncs, but don't run next job until
-      // both rsyncs are done.
-      put(env.scripts, "scripts", this.async());
-      put(env.www, "www", this.async());
+      // both rsyncs are done (this.async() adds refcount)
+      this.shell.upload(env.scripts, "scripts", this.async());
+      this.shell.upload(env.www, "www", this.async());
     });
     
     jobs.add('prepare', 'local', function() {
@@ -98,7 +91,7 @@ and run on multiples sites:
       // but concurrently for all sites
       // ( in this example it will spawn 6 concurrent rsync commands )
       this.run(['update', 'snapshot', 'deploy', 'snapshot']);
-    }
+    });
 
 In the above script jobs execute in the default schedule
 `site-sequential` meaning that jobs on different sites executes in

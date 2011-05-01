@@ -2,7 +2,7 @@
   "name": "polyshell",
   "main": "lib/index.js",
   "version": "0.1.1",
-  "author": "Mikkel Fahnøe Jørgensen <mikkel@dvide.com>",
+  "author": "MikkelFJ <mikkel@dvide.com>",
   "description": "distributed shell job control with role based configuration",
   "engines": {
     "node": ">=0.4.0"
