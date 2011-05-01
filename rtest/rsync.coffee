@@ -6,7 +6,7 @@ TO = 6000
 
 module.exports = {
   
-  rsyncfile: ->
+  sync: ->
     local = shell(log:true)
     sh = shell("example.com", { log: true });
     assert.equal(sh.options.host, "example.com")
@@ -16,19 +16,19 @@ module.exports = {
     upok = false
     downok = false
     local.run "echo #{content} > #{file}", ->
-      sh.rsyncup file, file, ->
+      sh.upsync file, file, ->
         sh.run "cat #{file}", (ec, cap) ->
           assert.ok not ec
           assert.equal(cap.out(), "#{content}\n")
           upok = true
-          setTimeout (-> assert.ok(downok, "rsyncdown failed to complete in time")), TO
-          sh.rsyncdown file, file + "2", ->
+          setTimeout (-> assert.ok(downok, "downsync failed to complete in time")), TO
+          sh.downsync file, file + "2", ->
             local.run "cat #{file}2", (ec, cap) ->
               assert.equal cap.out(), "#{content}\n"
               downok = not ec
-    setTimeout (-> assert.ok(upok, "rsyncup failed to complete in time")), TO
+    setTimeout (-> assert.ok(upok, "upsync failed to complete in time")), TO
 
-  upload: ->
+  mirror: ->
     
     # prefix a, b for sorting
     a = "a#{util.uid(3)}"
@@ -48,12 +48,12 @@ module.exports = {
     downok = false
     
     local.run cmd, ->
-      sh.upload "tmp/uploads/", "tmp/uptest", ->
+      sh.upmirror "tmp/uploads/", "tmp/uptest", ->
         sh.run "ls tmp/uptest", (ec, cap) ->
           assert.equal cap.out(), lsout
           upok = true
           setTimeout (-> assert.ok(downok, "download failed to complete in time")), TO
-          sh.download "tmp/uptest/", "tmp/roundtrip", (ec, cap) ->
+          sh.downmirror "tmp/uptest/", "tmp/roundtrip", (ec, cap) ->
             assert.ok not ec
             local.run "ls tmp/roundtrip", (ec, cap) ->
               assert.equal cap.out(), lsout

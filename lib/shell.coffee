@@ -224,14 +224,14 @@ class Shell
     args = _.flatten(args)
     return @spawn cmd, args, cb
 
-  rsyncup: (sources, dest, args, cb) ->
+  upsync: (sources, dest, args, cb) ->
     if typeof args == 'function'
       cb = args; args = null
     if @remote
       dest = @options.host + ":" + dest
     return @_rsync [args or [], sources, dest], cb
 
-  rsyncdown: (sources, dest, args, cb) ->
+  downsync: (sources, dest, args, cb) ->
     if typeof args == 'function'
       cb = args; args = null
     if @remote
@@ -239,11 +239,17 @@ class Shell
       sources = _.map(_.flatten([sources or []]), (src) -> h + src)
     return @_rsync [args or [], sources, dest], cb
 
+  upmirror: (sources, dest, cb) ->
+    return @upsync sources, dest, ["-azP", "--delete"], cb
+
+  downmirror: (sources, dest, cb) ->
+    return @downsync sources, dest, ["-azP", "--delete"], cb
+
   upload: (sources, dest, cb) ->
-    return @rsyncup sources, dest, ["-azP", "--delete"], cb
+    return @upsync sources, dest, ["-azP"], cb
 
   download: (sources, dest, cb) ->
-    return @rsyncdown sources, dest, ["-azP", "--delete"], cb
+    return @downsync sources, dest, ["-azP"], cb
 
   # prompt user for password to preload password cache
   # not strictly needed, but may be more userfriendly

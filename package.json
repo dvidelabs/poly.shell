@@ -1,9 +1,9 @@
 {
-  "name": "polyshell",
+  "name": "poly",
   "main": "lib/index.js",
   "version": "0.1.1",
   "author": "MikkelFJ <mikkel@dvide.com>",
-  "description": "distributed shell job control with role based configuration",
+  "description": "Poly.shell - distributed shell job control with role based configuration",
   "engines": {
     "node": ">=0.4.0"
   },

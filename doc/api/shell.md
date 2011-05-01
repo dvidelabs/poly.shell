@@ -23,10 +23,7 @@ control.
 Basic example running local and remote hosts, assuming .ssh/config has been
 configured with real host name and ssh keys.
 
-TODO: test these examples
-
-
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     
     shell('example.com').run("ls");
     
@@ -39,7 +36,7 @@ Callbacks can be used to get the error code from the shell, or delay execution
 between two shell commands (although it is usually better to use ' && ' in a
 single command):
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
 
     var host = shell('example.com');
     
@@ -52,19 +49,19 @@ single command):
 Multiple shell commands can be given as an array and will be converted
 to a single string joined by ' && ', like the last command below:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
 
     var host = shell('example.com');
     host.run(["ls", "touch hello2.test"]);
     host.run("ls && touch hello2.test");
 
 
-Site configurations are used by the Polyshell job controller, partially to
-initialise remote shells. Here is an example using just site configurations
-and shells without job control.
+Site configurations are used by the `poly.jobs()`, partially to
+initialise remote shells. Here is an example using just site
+configurations and shells without job control.
 
-    var polyshell = require('polyshell');
-    var sites = polyshell.sites();
+    var poly = require('poly');
+    var sites = poly.sites();
     sites.add('host1', { host: "example.com" });
     
     var host1 = shell(sites.get('host1'));
@@ -78,7 +75,7 @@ Shells can also be accessed from within job actions, see `jobs.add`,
 Shells run commands as background processes. Callbacks can be used to wait
 for completion with a numeric error code:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     
     shell.run("ls");
     shell.run("ls", function() { console.log "done"; });
@@ -93,7 +90,7 @@ for completion with a numeric error code:
 By default shells output all commands to `process.stdout` and also captures the
 output to a buffer for use in callbacks:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
 
     shell().run("ls", function(ec, capture) {
         if(!ec)
@@ -119,7 +116,7 @@ write method as the `option.outStream` property (also a site configuration).
 The same applies to logging with the `option.logStream` option when
 `option.log` is true:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     var logger = { write: function(buffer) { console.log buffer } };
     var devnull = { write: function() {} };
 
@@ -144,87 +141,125 @@ is called after each log entry if present. This to ensure logging is
 captured in the event of a system down event.
 
 Standard Node.js Writable streams can also be used as outStream and logStream objects.
+This enables use of shells in http servers, as an example.
 
 ### sudo
 
-The shell has a `sudo` method to detect password prompts and locally prompt
-user. This can be messy if there is a lot of logging going on, so best to make
-sure at least the first `sudo` operation runs at an isolated stage, although
-not a requirement.
+The shell has a `sudo` method to detect password prompts and locally
+prompt the user. This can be messy if there is a lot of logging going
+on, so it is best to make sure at least the first `sudo` operation
+runs at an isolated stage (or an explicit `shell.promptPassword` operation),
+although not a requirement.
 
-In the following example we see two different ways to run `sudo`. One where the
-shell object detects `sudo` in the start of the command, and one where we
-explicitly call `sudo`. The latter is recommended, but for trivial commands the
-former should work.
+There are two different ways to run `sudo`; one where the shell object
+detects `sudo` in the start of the command, and another one where we
+call `shell.sudo` explicitly. The latter is recommended, but for trivial
+commands the former should work just as well:
 
-  var shell = require('polyshell').shell;
-  var host = shell('example.com');
+    var shell = require('poly').shell;
+    var host = shell('example.com');
 
-  host.sudo("ls");
-  host.run 'sudo tail /var/log/auth.log | grep root';
+    host.sudo("ls");
+    host.run 'sudo tail /var/log/auth.log | grep root';
 
+The example above runs two shells concurrently on the same shell
+object. One of the commands will detect a `sudo` prompt, ask for
+password, save the password in a cache and feed the password to the
+remote server. The other command will detect a `sudo` request, then
+detect that the other shell is already pending for user input and wait
+for the result, then access the cached password and send it to the
+server.
 
-The example above runs two shells concurrently on the same shell object. One
-of the commands will detect a `sudo` prompt, ask for password, save the password
-in a cache and feed the password to the remote server. The other command will
-detect a `sudo` request, then detect that the other shell is already pending for
-user input and wait for the result, then access the cached password and send
-it to the server.
+Note that on some systems, the remote end will have a `sudo` timeout
+so the second command will not need to ask for a password, while
+others will.
 
-Note that on some systems, the remote end will have a `sudo` timeout so the
-second command will not need to ask for a password, while others will.
+We can also set the password explicitly if we dare to have it
+accessible in a script. This will preload the cache and the first
+command detecting a `sudo` prompt will try the cached password first
+before falling back to asking the user:
 
-We can also set the password explicitly if we dare to have it accessible in a
-script. This will preload the cache and the first command detecting a `sudo`
-prompt will try the cached password first before falling back to asking the
-user:
-
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     var host = shell('example.com');
     
     host.setPassword("xyzzy");
     host.sudo("ls");
 
-We can also explicitly ask the user for a password before detecting a sudo
-prompt and then cache the password for later use. When a shell eventually
-detects a `sudo` prompt, it will first try the cached password before asking the
-user:
+We can also explicitly ask the user for a password before detecting a
+sudo prompt and then cache the password for later use. When a shell
+eventually detects a `sudo` prompt, it will first try the cached
+password before asking the user:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     var host = shell('example.com');
 
     host.promptPassword();
     host.sudo("ls", function(err) { if(err) { host.resetPassword(); } });
 
-In the above example, we have chosen to reset the password after the shell returns.
+In the above example, we have chosen to reset the password after the
+shell returns.
 
-### Transferring files
+### Transferring Files
 
-Files can be transferred via rsync using `shell.rsyncup` and
-`shell.rsyncdown`. Here an example with `shell.rsyncup`. Notice that the shell
-inserts the target host automatically.
+Files can be transferred via rsync over ssh using
+
+- shell.upload(sources, destination, [cb])
+- shell.download(sources, destination, [cb])
+
+`sources` can optionally be an array of pathnames. Files are up- or
+downloaded into a single destination directory. The shell host is added
+to the destination for uploads and to the sources for downloads:
 
     var host = shell("example.com");
     var local = shell();
-    
+
     local.run("mkdir -p tmp && echo hello > tmp/hello.local.test", function () {
-      host.rsyncup tmp/hello.local.test, hello.example.com.test"
+      host.upload("tmp/hello.local.test", "uploads");
     });
 
-Entire directories can be uploaded and downloaded using `shell.upload` and `shell.download`.
-These are convenience functions that calls `shell.rsyncup` and `shell.rsyncdown` with
-special arguments. See Shell API reference for more details.
+Remote files are relative to the user account home, local files are
+relative to current working directory, much like any other shell
+command. If the shell is local, both sources and destination are relative
+to the current working directory (folder).
+
+As usual with `rsync`, a source pathname with a trailing slash means the copy
+contents of the directory but not the directory itself, and otherwise
+include the directory.
+
+The destination (or sources) host is automatically added to the
+destination (or sources).
+
+`shell.upmirror` and `shell.downmirror` behaves like up- and download but deletes
+files in the destination if they are not present in the sources.
+
+**Warning**:
+ 
+    Mirror deletes any files in the destination that does not match the
+    source. Careless use of mirror can lead to extensive data loss.
+
+The above functions are really convenience functions calling the lower
+level `shell.upsync` and `shell.downsync` functions which take
+additional rsync arguments. The up- and download functions are
+implemented by these functions using `['-azP']` as argument. The up-
+and downmirror functions uses the arguments `['-azP','--delete']`:
+
+    var mydownload = function(host, port, user, sources, dest) {
+      shell({ host: host, user: user, port: port}).downsync(sources, dest, ['-azP']);
+    };
 
 Note: `rsync` runs via ssh. `options.port` and `options.user`
 are passed to rsync using the rsync -e option. For example:
 
-    var host = shell("example.com", { port: 10000, user: beatrice });
-    host.rsyncup("localfile", "destfile");
+    var host = shell({ host: "example.com", port: 10000, user: beatrice });
+    host.upsync("localfile", "destfile", ['-z']);
 
 becomes:
 
-    $ rsync -e 'ssh -p 10000 -l beatrice' localfilename example.com:destfile
+    $ rsync -e 'ssh -p 10000 -l beatrice' -z localfile example.com:destfile
 
+As is always the case with remote shell operation, user name and port
+number are optional when defined in `.ssh/config`, but will override
+the `.ssh/config` setting.
 
 ## Shell API
 
@@ -234,7 +269,7 @@ Creates a new shell object, but does not run anything or consume any
 significant resources. Holds configuration data needed to start a local shell,
 or a remote shell. Also holds information for password caching:
 
-    var shell = require('polyshell').shell;
+    var shell = require('poly').shell;
     var local = shell();
     var host1 = shell("example.com", { log: true });
     var host2 = shell("example.com");
@@ -312,7 +347,7 @@ options.
 - `options.user`: optional user name for ssh (can also be set in
   `.ssh/config`).
 
-### shell.run(cmd, [callback(err, capture())])
+### shell.run(cmd, [callback(err, capture)])
 
 `cmd` : a command string to be executed by a local or remote shell. If given
 as array, the individual commands are joined by ' && ' before being given to
@@ -323,17 +358,30 @@ Especially useful under job control to ensure that a job action does not
 complete before the shell does, and that the action fails if the shell does.
 If shell is created with `option.captureLimit = 0`, capture returns the empty string,
 otherwise up to `options.captureLimit` bytes of buffered output, or default 64K.
-If no callback is given, the shell continues as a background process and no output
-is captured (but still streamed to the shells output stream).
-`capture` is a function that converts captured buffers to a string:
-`var myoutputstring = capture()`.
-The callback is compatible with the callback acquired by job actions
-`this.async()`.
+
+When the shell is created as part of a `jobs.add()` action invocation,
+`this.async()` may be used as callback. This makes the action wait for
+the shell before signalling the action complete (modulo other calls to
+`this.async()`).
+
+If no callback is given, the shell continues as a background process
+and no output is captured (but still streamed to the shells output
+stream).
+
+`capture` is an object with the following functions:
+
+- out([encoding = 'utf8']): convert captured output buffers into a
+  string with the given encoding. Returns at most 'captureLimit' bytes
+  before conversion.
+
+- err([encoding = 'utf8']): like out for the error stream (not the log stream).
 
 If the shell command begins with "sudo", "sudo" is stripped from the command and
 the rest is passed on to the `shell.sudo` helper command.
 
-### shell.sudo(cmd, [callback(err, capture())])
+Returns the Node.js child process object.
+
+### shell.sudo(cmd, [callback(err, capture)])
 
 Will detect a sudo password prompt using a globally unique prompt name and
 replace that prompt with 'Password:' and display it the user. If there is a
@@ -361,39 +409,35 @@ It may be a better strategy to start the entire operation with
 `shell.promptPassword` in isolation before kicking off a host of concurrent
 shell commands.
 
-### shell.log
-
-Property that can be read and set. Enables similar top `options.log`.
-
-### shell.options
-
-The options given as input. Gives access to a copy of site configuration when
-the shell is created by a job action, see `jobs()`.
-
-### shell.remote
-
-A read-only flag that is true if the shell is running on a remote
-system. Set if `options.host` has been specified.
+Returns the Node.js child process object.
 
 ### shell.upload(sources, dest, [cb])
 
-Calls rsyncup with the arguments ['-azP', '--delete']. 
-
-    Warning: 'dest' will have all files removed that do not
-    match the source list.
+Calls upsync with the arguments ['-azP']. 
 
 ### shell.download(sources, dest, [cb])
 
-Calls rsyncdown with the arguments ['-azP', '--delete']. 
+Calls downsync with the arguments ['-azP']. 
 
-    Warning: 'dest' will have all files removed that do not
-    match the source list.
+### shell.upmirror(sources, dest, [cb])
 
-### shell.rsyncdown(sources, dest, [args], [cb])
+Calls upsync with the arguments ['-azP', '--delete']. 
+
+    Warning: 'dest' will have all files removed
+    that do not match the source list.
+
+### shell.downmirror(sources, dest, [cb])
+
+Calls downsync with the arguments ['-azP', '--delete']. 
+
+    Warning: 'dest' will have all files removed
+    that do not match the source list.
+
+### shell.downsync(sources, dest, [args], [cb])
 
 Transfers files from remote system to local system.
 
-See also `shell.rsyncup`.
+See also `shell.upsync`.
 
 `args`: flags passed to rsync before `sources`.
 
@@ -406,7 +450,7 @@ current working directory on local system.
 
 `cb`: callback similar to `shell.run`.
 
-### shell.rsyncup(sources, dest, [args], [cb])
+### shell.upsync(sources, dest, [args], [cb])
 
 Transfers local files to remote system.
 
@@ -429,20 +473,6 @@ relative to current working directory.
 
 `cb`: callback similar to `shell.run`.
 
-### shell.shellCmd
-
-The command used to run the shell, typically "sh" or the SHELL environment
-variable for local systems, and "ssh" for remote systems. Affected by
-`options.ssh` and `options.shell` for local and remote systems respectively.
-See also `shel.shellArgs`.
-
-### shell.shellArgs
-
-Array of arguments passed to `spawn` when running shell commands. For
-remote shells thic can be used with the `rsync -e` option together with
-`shell.Cmd` when a user name or port number is required. `shell.rsync`
-implements this automatically.
-
 ### shell.spawn(cmd, args, [cb])
 
 Executes a local system command, also when the shell is remote.
@@ -450,13 +480,7 @@ The callback works like `shell.run` and shell.run is roughly `spawn`
 with `sh` or `ssh` as first argument. Useful for running source
 control and rsync commands to access the remote system.
 
-Returns child process object, including child.pid.
-
-### shell.passwordCache
-
-Property equal to assigned options.passwordCache, or a internally created
-password cache object if none were provided. The property can be used to
-initialise new shells that share the same password.
+Returns Node.js child process object, including child.pid.
 
 ### shell.setPassword(password)
 
@@ -480,3 +504,34 @@ console. Callback makes it possible to wait for the user to complete
 the password entry. Issues the error string 'SIGINT' if the user types
 'Ctrl+C' and should normally be used to issue a
 `process.kill(process.pid)`. Otherwise similar to setPassword.
+
+### shell.log
+
+Property that can be read and set. Enables similar top `options.log`.
+
+### shell.options
+
+The options given as input. Gives access to a copy of site configuration when
+the shell is created by a job action, see `jobs()`.
+
+### shell.remote
+
+A read-only flag that is true if the shell is running on a remote
+system. Set if `options.host` has been specified.
+
+### shell.shellCmd
+
+The command used to run the shell, typically "sh" or the SHELL environment
+variable for local systems, and "ssh" for remote systems. Affected by
+`options.ssh` and `options.shell` for local and remote systems respectively.
+
+### shell.shellArgs
+
+Array of arguments passed to `spawn` when running shell commands, affected
+by `options.shargs` and `options.sshargs`.
+
+### shell.passwordCache
+
+Property equal to assigned options.passwordCache, or a internally created
+password cache object if none were provided. The property can be used to
+initialise new shells that share the same password.

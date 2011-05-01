@@ -1,6 +1,7 @@
-# Polyshell - multi-site role based job scheduling with local and remote shells
+# Poly.shell
+## - distributed shell job control with role based configuration
 
-Polyshell is primarily intended to administer server clusters, but it
+Poly.shell is primarily intended to administer server clusters, but it
 can also be used to schedule other kinds of distributed computation, or
 to just run simple shell commands.
 
@@ -9,7 +10,7 @@ new versions of web sites, and to verify that backup jobs have been completing
 successfully.
 
 The Capistrano and Vlad tools for Ruby on Rails are designed for these kind of
-jobs. Polyshell is a lower level tool but forms a good foundation for performing
+jobs. Poly.shell is a lower level tool but forms a good foundation for performing
 standard routines such as deploying a new version of a web site pulled from
 the latest source control branch.
 
@@ -17,20 +18,20 @@ The basic idea is to define a set of named jobs with actions that can run
 in sequence, in parallel, or some variation thereof, on multiple local and
 remote sites using role names to aid configuration.
 
-Polyshell can also be used as a convenient way to quickly run system
+Poly.shell can also be used as a convenient way to quickly run system
 local shell commands:
 
-    require('polyshell').shell().run("touch IWasHere");
+    require('poly').shell().run("touch IWasHere");
 
 or to run commands on a single remote system:
 
-    require('polyshell').shell('example.com').run("ls");
+    require('poly').shell('example.com').run("ls");
 
 For more complex work, `jobs()` provides a job control
 system to define named jobs that can be assembled in different schedules
 and run on multiples sites:
 
-    var jobs = require('polyshell').jobs();
+    var jobs = require('poly').jobs();
     var sites = jobs.sites;
     var email = { send: function(to, title, body) { console.log "implement this"; } };
     
@@ -60,7 +61,7 @@ and run on multiples sites:
       var status = this.shared[this.site.name] || {};
       
       // We might as well do the grunt work locally on the remote site
-      // using shell scripts, or perhaps even Node.js polyshell scripts.
+      // using shell scripts, or perhaps even Node.js poly.shell scripts.
       var scripts = ["scripts/myinit", "scripts/mybackup"];
       
       if(status.ok)
@@ -135,7 +136,7 @@ Tests normally dump files in a local tmp dir that is cleaned with `make clean`.
 
 ## CoffeeScript
 
-Polyshell is written primarily in CoffeeScript, but that shouldn't change anything.
+Poly.shell is written primarily in CoffeeScript, but that shouldn't change anything.
 If, for some reason (including debugging), a JavaScript version is needed,
 a JavaScript only module can be created in sub-folder using:
 
@@ -143,11 +144,11 @@ a JavaScript only module can be created in sub-folder using:
 
 ## Passwords
 
-Polyshell does not support ssh password based account login. It is assumed that ssh
+Poly.shell does not support ssh password based account login. It is assumed that ssh
 will use ssh keys without passwords, or with passwords managed by an external
 agent such as `ssh-agent`.
 
-Polyshell does, however, support `sudo` password prompts after ssh login. In the
+Poly.shell does, however, support `sudo` password prompts after ssh login. In the
 basic form a shell detects a sudo prompt and issues a silent prompt to the
 user console.
 
@@ -163,7 +164,7 @@ valid password is cached.
 
 ## Scheduling
 
-The Polyshell job control scheduler is fairly simple. A schedule is an
+The Poly.shell job control scheduler is fairly simple. A schedule is an
 array of job names which can be run in one the following modes:
 `sequential`, `atomic`, `parallel`, or the default: `site-sequential`
 where different jobs may run at the same time but each site will only
@@ -174,14 +175,11 @@ Node.js async libraries like `seq`, `flow` and `async`, but with
 role based job distribution, reporting, configuration, unique
 identifiers, (remote) shell support, and password agents.
 
-Polyshell has no dependency resolver, but it is possible to use
-Polyshell inside a `Jakefile`, or in similar tools, or even in a
+Poly.shell has no dependency resolver, but it is possible to use
+Poly.shell inside a `Jakefile`, or in similar tools, or even in a
 web framework like `Express`.
 
-It is also possible to create new primitives such as context locks
-that can be stored in site configurations or on the shared job object
-space. Locking is known from database transaction schedulers and,
-perhaps counterintuitively, implements a good scheduling algorithm.
-
-The Polyshell password cache does something along these lines by using
-a Node.js EventEmitter.
+Locking primitives can be added, for example by using Node.js
+EventEmitter objects in the shared context, or in site configurations
+for example. The password cache and agent does something similar.
+Locking provides a good algorithm for scheduling transactions.
