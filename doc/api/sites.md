@@ -1,21 +1,20 @@
 ## Sites
 
-A site is a name that maps to configurations settings which typically include
-a host domain, a user, and possibly a local path. A site may be local (no host
-domain), or remote. `.ssh/config` is typically used to map a host to a real
-remote host with ssh keys.
+Sites is a collection of named configurations (environments) that provide
+information about a server. In addition to the stored configuration, each
+site also belongs to one or more roles.
 
-Note: here we focus on the actual api for managing sites. There are specific
-settings which are significant in specific contexts which will not be covered
-here, since a site can be used many ways.
+A minimal site configuration is empty for local servers and contains a
+host name for remote servers.
 
-For the job controller `jobs()`, site configurations have two important
-purposes: one is to identify which sites a job will target by matching role
-names, and the other is to automatically initialise local and remote shells
-using settings in the site configuration object. The host setting is the most
-important: if present, .ssh/config can be used to provide access to the given
-host, and if absent, a local shell is assumed. See `Shell` and `jobs()` for
-more details.
+Sites are used to initialise shell object and for job scheduling
+through `poly.jobs().sites`. Sites can hold any kind of information
+including complex objects, but the minimal, and typical usage, is to
+store the host name that a shell should contact when running commands.
+
+The host is typically configured in the file `.ssh/config`, but
+otherwise `user` name and `port` number may also be configured to help
+a shell connect to a host. See `poly.shell()`.
 
 ### Advanced configuration
 
@@ -169,7 +168,7 @@ A shorthand for `sites.add(sites.list(inroles), roles, config, merge)`;
 Updates all sites in the given `inroles` simultaneously, but will
 not create any new sites.
 
-### job.sites
+### jobs.sites
 
 Sites are used by the job controller. The job controller automatically
 creates a sites collection if one is not being passed when the job controller
@@ -183,7 +182,7 @@ or, to share sites between different job controllers:
     var poly = require('poly');
     var sites = poly.sites();
     
-    bar jobs = poly.jobs(sites);
+    var jobs = poly.jobs(sites);
       // sites === jobs.sites
       
     jobs2 = poly.jobs(sites);
