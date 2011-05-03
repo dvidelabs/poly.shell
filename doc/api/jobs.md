@@ -1,3 +1,16 @@
+## jobs() Overview
+
+    var jobs = require('poly').jobs();
+    var sites = jobs.sites;
+    
+or
+
+    var sites = require('poly').sites();
+    var jobs = require('poly').jobs(sites);
+    
+
+## jobs() Reference
+
 ### jobs.add(jobname, [roles], [actions])
 
 Adds actions to a new or an existing named job. The job is not run, only
@@ -78,43 +91,6 @@ schedule used to run multiple jobs.
 
 See also `Actions`.
 
-### jobs.runSiteSequential(jobs, [roles], [options], [callback])
-
-Run job or jobs in a `site-sequential` schedule where one job
-completes on a site before a new is started, but a new job can start
-on one site before a previous job has finished on all other sites.
-`callback` is called once all jobs have completed on all sites.
-
-`jobs.run` is a synonym for this function as this is normally the
-desired behaviour.
-
-See `jobs.run` for more details.
-
-### jobs.runAtomic(jobs, [roles], [options], [callback])
-
-Runs a job on one site at a time. Starts a new job when that last
-matching site has completed the current job. Job actions within a
-single job on a single site run concurrently. `callback` is called
-once all jobs have completed on all sites.
-
-See `jobs.run` for more details.
-
-### jobs.runSequential(jobs, [roles], [options], [callback])
-
-Run jobs one after another in a `sequential` schedule such that a
-single job runs concurrently on all matching sites, but also such that
-no two jobs overlap across all sites. `callback` is called once all
-jobs have completed on all sites.
-
-See `jobs.run` for more details.
-
-### jobs.runParallel(jobs, [roles], [options], [callback])
-
-Runs all jobs in parallel on all sites. `callback` is called once all
-job actions have completed.
-
-See `jobs.run` for more details.
-
 ### jobs.run(jobs, [roles], [options], [callback])
 
 Synonym for runSiteSequential.
@@ -169,6 +145,43 @@ pointer in the callback.
 - `options.report`: if true enable custom report output, even when `options.log` disabled.
 - `options.debug`: if true enable custom debug output - independent of `options.log`.
 - `options.quiet`: if true suppress error messages, overridden by `options.log`.
+
+### jobs.runSiteSequential(jobs, [roles], [options], [callback])
+
+Run job or jobs in a `site-sequential` schedule where one job
+completes on a site before a new is started, but a new job can start
+on one site before a previous job has finished on all other sites.
+`callback` is called once all jobs have completed on all sites.
+
+`jobs.run` is a synonym for this function as this is normally the
+desired behaviour.
+
+See `jobs.run` for more details.
+
+### jobs.runAtomic(jobs, [roles], [options], [callback])
+
+Runs a job on one site at a time. Starts a new job when that last
+matching site has completed the current job. Job actions within a
+single job on a single site run concurrently. `callback` is called
+once all jobs have completed on all sites.
+
+See `jobs.run` for more details.
+
+### jobs.runSequential(jobs, [roles], [options], [callback])
+
+Run jobs one after another in a `sequential` schedule such that a
+single job runs concurrently on all matching sites, but also such that
+no two jobs overlap across all sites. `callback` is called once all
+jobs have completed on all sites.
+
+See `jobs.run` for more details.
+
+### jobs.runParallel(jobs, [roles], [options], [callback])
+
+Runs all jobs in parallel on all sites. `callback` is called once all
+job actions have completed.
+
+See `jobs.run` for more details.
 
 ### jobs.sharePassword(roles, [password])
 

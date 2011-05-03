@@ -1,6 +1,29 @@
-.PHONY: js clean dep cleandep test rtest
+.PHONY: js clean dep cleandep test rtest doc docinit
 
 COFFEE=node_modules/coffee-script/bin/coffee
+NODE=node
+
+apidoc_sources = $(wildcard doc/api/*.md)
+apidocs = $(addprefix build/,$(apidoc_sources:.md=.html))
+
+doc_sources = $(wildcard doc/*.md)
+docs = $(addprefix build/,$(doc_sources:.md=.html))
+
+docinit:
+	@mkdir -p build/doc/api build/doc/css build/doc/js
+	@cp doc/css/* build/doc/css
+	@cp doc/js/* build/doc/js
+
+build/doc/api/%.html: doc/api/%.md docinit
+	$(NODE) ext/doctool/doctool.js doc/html/api-layout.html $< > $@
+
+build/doc/%.html: doc/%.md docinit
+	$(NODE) ext/doctool/doctool.js doc/html/layout.html $< > $@
+
+build/doc/readme.html: README.md docinit
+	$(NODE) ext/doctool/doctool.js doc/html/layout.html $< > $@
+
+doc: $(apidocs) $(docs) build/doc/readme.html
 
 node_modules/flag:
 	@npm install
@@ -12,26 +35,27 @@ install:
 	npm install -g
 
 js: dep
-	@mkdir -p gen-js
-	@mkdir -p gen-js/lib
-	@mkdir -p gen-js/test
-	@mkdir -p gen-js/examples
-	@${COFFEE} -c -o gen-js/lib lib/*.coffee
-	@${COFFEE} -c -o gen-js/test test/*.coffee
+	@mkdir -p build/js
+	@mkdir -p build/js/lib
+	@mkdir -p build/js/test
+	@mkdir -p build/js/examples
+	@${COFFEE} -c -o build/js/lib lib/*.coffee
+	@${COFFEE} -c -o build/js/test test/*.coffee
 	@#${COFFEE} -c -o gen-js/examples examples/*.coffee
-	@cp index.js gen-js
-	@cp -r examples/*.js gen-js/examples
+	@cp index.js build/js
+	@cp -r examples/*.js build/js/examples
+	@cp -rf node_modules build/js/node_modules
 	@echo "generated javascript in folder gen-js"
 
 clean:
 	@rm -rf tmp
-	@rm -rf gen-js
+	@rm -rf build
 
 cleandep:
 	@rm -rf node_modules
 
 test: dep
-	mkdir -p tmp
+	@mkdir -p tmp
 	@expresso
 
 rtest: dep

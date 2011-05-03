@@ -69,92 +69,63 @@ the following methods and properties:
 
 **Properties**
 
-  - `this.batchid` :
-  
-      a globally unique identifier for this batch, used to prefix action id.
-      
-    `this.count` :
-    
-      the action invocation index of this batch, starting with 1. The index is
-      unique to this action within the current batch.
-      
-  - `this.fragment` :
-  
-      a number between 1 and `fragments`. The same action may have a different fragment
-      number on a different site, but it is unique for the current job
-      invocation on the current site.
-      Logging use the job name suffix `(fragment/fragments)` when there is more than
-      one fragment.
-      
-  - `this.fragments` :
-  
-      the total number of actions (fragments) running in this job invocation on this site.
-      
-  - `this.id` :
-
-      the action id is globally is unique for this invocation. It has the form:
-      `batchid-scheduleindex-actionindex`.
-
-  - `this.issuer` :
-  
-      the issuer is a string used for logging. It has the form:
-      `[batchid-scheduleindex-actionindex] sitename`
-      
-  - `this.index` :
-  
-      index of this action within the current schedule. Used as the third value in
-      the `this.id` string.
-      
-  - `this.jobname` :
-  
-      name of the currently executing jobs (but not which invocation within the schedule).
-      
-  - `this.options` :
-  
-      direct and inherited schedule options.
-      
-  - `this.shared` :
-  
-      a batch global shared object for customised information sharing.
-      
-  - `this.shell` :
-  
-      the shell object configured with data from site config and
-      schedule options such as `options.log`. Run local or remote shells using `this.shell.run`.
-      See also `Shell`.
-      
-  - `this.site` :
-  
-      the site configuration object, for example used to access the site name through: `this.site.name`.
+- `this.batchid`:
+    a globally unique identifier for this batch, used to prefix action id.
+  `this.count`:
+    the action invocation index of this batch, starting with 1. The index is
+    unique to this action within the current batch.
+- `this.fragment`:
+    a number between 1 and `fragments`. The same action may have a different fragment
+    number on a different site, but it is unique for the current job
+    invocation on the current site.
+    Logging use the job name suffix `(fragment/fragments)` when there is more than
+    one fragment.
+- `this.fragments`:
+    the total number of actions (fragments) running in this job invocation on this site.
+- `this.id`:
+    the action id is globally is unique for this invocation. It has the form:
+    `batchid-scheduleindex-actionindex`.
+- `this.issuer`:
+    the issuer is a string used for logging. It has the form:
+    `[batchid-scheduleindex-actionindex] sitename`
+- `this.index`:
+    index of this action within the current schedule. Used as the third value in
+    the `this.id` string.
+- `this.jobname`:
+    name of the currently executing jobs (but not which invocation within the schedule).
+- `this.options`:
+    direct and inherited schedule options.
+- `this.shared`:
+    a batch global shared object for customised information sharing.
+- `this.shell`:
+    the shell object configured with data from site config and
+    schedule options such as `options.log`. Run local or remote shells using `this.shell.run`.
+    See also `Shell`.
+- `this.site`:
+    the site configuration object, for example used to access the site name through: `this.site.name`.
 
 **Methods**
 
-  - `this.debug(msg, [value])` :
-  
-      debug message and optional object inspection dump when `debug` option is true.
-      
-  - `this.report(msg)` :
-  
-      customised logging when `log` or `report` options are true for the schedule.
+- `this.debug(msg, [value])`:
+    debug message and optional object inspection dump when `debug` option is true.
+- `this.report(msg)`:
+    customised logging when `log` or `report` options are true for the schedule.
 
 **Flow and Error Control**
 
-  - `this.async() => callback(err)` :
-      
-      acquires a callback function: "callback = `this.async()`" that can be
-      called by asynchronous functions, for example `this.shell.run(cmd, callback)`.
-      `async()` may be called multiple times to coordinate multiple
-      async methods in the action. Each acquired callback **must** be called
-      exactly once, either with null or an error. `this.async()` must not be
-      called after the action has returned unless there are uncalled callbacks
-      acquired by other calls to `this.async()` with the same `this` reference.
-   
-  - `this.fail(err)` :
-   
-      report an error for synchronous actions that do not need a callback.
-      Can be called with null which has no effect. Synchronous method may, as an
-      alternative, acquire a callback with `this.async()` and call the returned
-      callback with an error code. `fail` is simply shorthand for this.
+- `this.async() => callback(err)`:
+    acquires a callback function: "callback = `this.async()`" that can be
+    called by asynchronous functions, for example `this.shell.run(cmd, callback)`.
+    `async()` may be called multiple times to coordinate multiple
+    async methods in the action. Each acquired callback **must** be called
+    exactly once, either with null or an error. `this.async()` must not be
+    called after the action has returned unless there are uncalled callbacks
+    acquired by other calls to `this.async()` with the same `this` reference.
+- `this.fail(err)`:
+    report an error for synchronous actions that do not need a callback.
+    Can be called with null which has no effect. Synchronous method may, as an
+    alternative, acquire a callback with `this.async()` and call the returned
+    callback with an error code. `fail` is simply shorthand for this.
 
 If a callback from `async()` has been called with an error, or fail has been
 called at least once with an error, the action will fail. Depending on

@@ -1,27 +1,26 @@
-## Shell
+## Shell Overview
 
-The most important use of the shell is the shell object automatically created
-inside job actions, but shells can be used in isolation for many other
-purposes, including arbitrary tasks in Jakefiles.
+The most important use of the shell is the shell object automatically
+created inside job actions, but shells can be used in isolation for
+many other purposes, including arbitrary tasks in Jakefiles.
 
-## Overview
+### Shell with Job Actions
 
-### Shell with job actions
+To understand the shell together with job actions, look at the `Shell
+API` below and study the options. These options represent properties
+in site configuration objects. the job controller sets a few of these
+directly: if logging is enabled it will be set in the shell also, and
+the shell name is not the site name but `this.issuer` which is a
+longer unique id including the site name for better logging
+consistency.
 
-To understand the shell together with job actions, look at the `Shell API`
-below and study the options. These options represent properties in site
-configuration objects. the job controller sets a few of these directly: if
-logging is enabled it will be set in the shell also, and the shell name is not
-the site name but `this.issuer` which is a longer unique id including the site
-name for better logging consistency.
+See also `sudo` operation below. This also apply when running shells
+under job control.
 
-See also `sudo` operation below. This also apply when running shells under job
-control.
+### Standalone Shell Usage
 
-### Standalone Shell usage
-
-Basic example running local and remote hosts, assuming .ssh/config has been
-configured with real host name and ssh keys.
+Basic example running local and remote hosts, assuming .ssh/config has
+been configured with real host name and ssh keys.
 
     var shell = require('poly').shell;
     
@@ -32,9 +31,9 @@ configured with real host name and ssh keys.
     host1 = shell({ host: "example.com", log: true });
     host1.run("touch iamhost1.test");
 
-Callbacks can be used to get the error code from the shell, or delay execution
-between two shell commands (although it is usually better to use ' && ' in a
-single command):
+Callbacks can be used to get the error code from the shell, or delay
+execution between two shell commands (although it is usually better to
+use ' && ' in a single command):
 
     var shell = require('poly').shell;
 
@@ -72,8 +71,8 @@ Shells can also be accessed from within job actions, see `jobs.add`,
 
 ### Callbacks
 
-Shells run commands as background processes. Callbacks can be used to wait
-for completion with a numeric error code:
+Shells run commands as background processes. Callbacks can be used to
+wait for completion with a numeric error code:
 
     var shell = require('poly').shell;
     
@@ -87,8 +86,8 @@ for completion with a numeric error code:
 
 ### Capturing Output
 
-By default shells output all commands to `process.stdout` and also captures the
-output to a buffer for use in callbacks:
+By default shells output all commands to `process.stdout` and also
+captures the output to a buffer for use in callbacks:
 
     var shell = require('poly').shell;
 
@@ -97,24 +96,24 @@ output to a buffer for use in callbacks:
           console.log("output was: " + capture() + "!");
     }
 
-Notice that `capture` is a function that we call to access the captured
-output. This converts the internal buffers to a string while avoiding
-the conversion for commands that do not need it.
+Notice that `capture` is a function that we call to access the
+captured output. This converts the internal buffers to a string while
+avoiding the conversion for commands that do not need it.
 
 The capture is limited to 64K, but can be changed using the
 `option.captureLimit` in the Shell constructor (this is also a site
 configuration option). Any output beyond the limit will not show up in
 the output() function, but will still be written to the output stream.
 Capturing can be disabled by setting `captureLimit = 0` If no callback
-is given, output is not captured at all, but still written to the output
-stream.
+is given, output is not captured at all, but still written to the
+output stream.
 
 ### Redirecting Output
 
 The output stream can be changed or nulled by adding an object with a
-write method as the `option.outStream` property (also a site configuration).
-The same applies to logging with the `option.logStream` option when
-`option.log` is true:
+write method as the `option.outStream` property (also a site
+configuration). The same applies to logging with the
+`option.logStream` option when `option.log` is true:
 
     var shell = require('poly').shell;
     var logger = { write: function(buffer) { console.log buffer } };
@@ -130,31 +129,34 @@ The same applies to logging with the `option.logStream` option when
           console.log capture.out();
     });
 
-In the above we redirected the output stream to nothing in order to silence the output
-and capture it instead. The shell option `options.silent` has the same effect.
+In the above we redirected the output stream to nothing in order to
+silence the output and capture it instead. The shell option
+`options.silent` has the same effect.
 
-`options.errStream` and `capture.err()` behave similar to the output stream. The
-error stream obeys `options.silent` and `options.captureLimit` the same as the outStream.
+`options.errStream` and `capture.err()` behave similar to the output
+stream. The error stream obeys `options.silent` and
+`options.captureLimit` the same as the outStream.
 
 The `options.logStream` has an option `logStream.flush()` method that
 is called after each log entry if present. This to ensure logging is
 captured in the event of a system down event.
 
-Standard Node.js Writable streams can also be used as outStream and logStream objects.
-This enables use of shells in http servers, as an example.
+Standard Node.js Writable streams can also be used as outStream and
+logStream objects. This enables use of shells in http servers, as an
+example.
 
 ### sudo
 
 The shell has a `sudo` method to detect password prompts and locally
 prompt the user. This can be messy if there is a lot of logging going
 on, so it is best to make sure at least the first `sudo` operation
-runs at an isolated stage (or an explicit `shell.promptPassword` operation),
-although not a requirement.
+runs at an isolated stage (or an explicit `shell.promptPassword`
+operation), although not a requirement.
 
 There are two different ways to run `sudo`; one where the shell object
 detects `sudo` in the start of the command, and another one where we
-call `shell.sudo` explicitly. The latter is recommended, but for trivial
-commands the former should work just as well:
+call `shell.sudo` explicitly. The latter is recommended, but for
+trivial commands the former should work just as well:
 
     var shell = require('poly').shell;
     var host = shell('example.com');
@@ -194,7 +196,8 @@ password before asking the user:
     var host = shell('example.com');
 
     host.promptPassword();
-    host.sudo("ls", function(err) { if(err) { host.resetPassword(); } });
+    host.sudo("ls", function(err) {
+      if(err) { host.resetPassword(); } });
 
 In the above example, we have chosen to reset the password after the
 shell returns.
@@ -207,13 +210,14 @@ Files can be transferred via rsync over ssh using
 - shell.download(sources, destination, [cb])
 
 `sources` can optionally be an array of pathnames. Files are up- or
-downloaded into a single destination directory. The shell host is added
-to the destination for uploads and to the sources for downloads:
+downloaded into a single destination directory. The shell host is
+added to the destination for uploads and to the sources for downloads:
 
     var host = shell("example.com");
     var local = shell();
 
-    local.run("mkdir -p tmp && echo hello > tmp/hello.local.test", function () {
+    local.run("mkdir -p tmp && echo hello >
+      tmp/hello.local.test", function () {
       host.upload("tmp/hello.local.test", "uploads");
     });
 
@@ -229,13 +233,14 @@ include the directory.
 The destination (or sources) host is automatically added to the
 destination (or sources).
 
-`shell.upmirror` and `shell.downmirror` behaves like up- and download but deletes
-files in the destination if they are not present in the sources.
+`shell.upmirror` and `shell.downmirror` behaves like up- and download
+but deletes files in the destination if they are not present in the
+sources.
 
 **Warning**:
  
-    Mirror deletes any files in the destination that does not match the
-    source. Careless use of mirror can lead to extensive data loss.
+*Mirror deletes any files in the destination that does not match the
+source. Careless use of mirror can lead to extensive data loss.*
 
 The above functions are really convenience functions calling the lower
 level `shell.upsync` and `shell.downsync` functions which take
@@ -244,24 +249,27 @@ implemented by these functions using `['-azP']` as argument. The up-
 and downmirror functions uses the arguments `['-azP','--delete']`:
 
     var mydownload = function(host, port, user, sources, dest) {
-      shell({ host: host, user: user, port: port}).downsync(sources, dest, ['-azP']);
+      shell({ host: host, user: user, port: port}
+        ).downsync(sources, dest, ['-azP']);
     };
 
 Note: `rsync` runs via ssh. `options.port` and `options.user`
 are passed to rsync using the rsync -e option. For example:
 
-    var host = shell({ host: "example.com", port: 10000, user: beatrice });
+    var host = shell({ host: "example.com",
+      port: 10000, user: beatrice });
     host.upsync("localfile", "destfile", ['-z']);
 
 becomes:
 
-    $ rsync -e 'ssh -p 10000 -l beatrice' -z localfile example.com:destfile
+    $ rsync -e 'ssh -p 10000 -l beatrice'
+       -z localfile example.com:destfile
 
 As is always the case with remote shell operation, user name and port
 number are optional when defined in `.ssh/config`, but will override
 the `.ssh/config` setting.
 
-## Shell API
+## Shell Reference
 
 ### shell([host], [options])
 
@@ -423,15 +431,15 @@ Calls downsync with the arguments ['-azP'].
 
 Calls upsync with the arguments ['-azP', '--delete']. 
 
-    Warning: 'dest' will have all files removed
-    that do not match the source list.
+*Warning: 'dest' will have all files removed
+that do not match the source list.*
 
 ### shell.downmirror(sources, dest, [cb])
 
 Calls downsync with the arguments ['-azP', '--delete']. 
 
-    Warning: 'dest' will have all files removed
-    that do not match the source list.
+*Warning: 'dest' will have all files removed
+that do not match the source list.*
 
 ### shell.downsync(sources, dest, [args], [cb])
 

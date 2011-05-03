@@ -7,10 +7,12 @@ Configure `.ssh/config` to point `example.com` to a real test server. You can
 also remove the 'host: 'example.com' setting altogether to run on your local
 system, or remove the host setting altogether to run in a local shell:
 
-    jobs = require('poly').jobs();
+    var jobs = require('poly').jobs();
 
-    jobs.sites.add('test', 'app-role', { host: 'example.com', testpath: 'tmp/jobstest/t1' });
-    jobs.sites.add('test2', 'app-role', { host: 'example.com', testpath: 'tmp/jobstest/t2' });
+    jobs.sites.add('test', 'app-role',
+      { host: 'example.com', testpath: 'tmp/jobstest/t1' });
+    jobs.sites.add('test2', 'app-role',
+      { host: 'example.com', testpath: 'tmp/jobstest/t2' });
 
     jobs.add('init', 'app-role', function() {
       this.shell.run("mkdir -p " + this.site.path, this.async());
@@ -25,7 +27,8 @@ system, or remove the host setting altogether to run in a local shell:
 
     jobs.add('world', 'app-role', function() {
       this.shell.run([
-        "echo grettings from: " + this.site.name + "running on host: " + this.site.host,
+        "echo grettings from: " + this.site.name + "running on host: "
+          + this.site.host,
         "cat " + this.shared[this.site.name].testfile
       ]);
       this.report("message delivered");
