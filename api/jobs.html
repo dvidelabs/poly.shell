@@ -1,0 +1,239 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sh.css" />
+    <title>
+      jobs - 
+    </title>
+  </head>
+  <body>
+    <div class="fixed-wrapper">
+      <div class="container">
+        <div class="single">
+          <div class="book normal">
+            <h1 class="column align-center">
+              <a href="../index.html">Poly.shell Documentation</a>
+            </h1>
+            <p class="column align-center">
+              A set of tools to make it easy to run jobs on different systems.
+            </p>
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2>
+                  <a href="index.html">Index</a>
+                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#jobs_Overview">jobs() Overview</a></li><li><a href="#jobs_Reference">jobs() Reference</a><ul><li><a href="#jobs.add">jobs.add(jobname, [roles], [actions])</a></li><li><a href="#jobs.run">jobs.run(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSiteSequential">jobs.runSiteSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runAtomic">jobs.runAtomic(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSequential">jobs.runSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runParallel">jobs.runParallel(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.sharePassword">jobs.sharePassword(roles, [password])</a></li></ul></li></ul><hr /></div>
+<h2 id="jobs_Overview">jobs() Overview</h2>
+
+<pre><code>var jobs = require('poly').jobs();
+var sites = jobs.sites;</code></pre>
+
+<p>or</p>
+
+<pre><code>var sites = require('poly').sites();
+var jobs = require('poly').jobs(sites);</code></pre>
+
+<h2 id="jobs_Reference">jobs() Reference</h2>
+
+<h3 id="jobs.add">jobs.add(jobname, [roles], [actions])</h3>
+
+<p>Adds actions to a new or an existing named job. The job is not run, only
+made available to the job schedulers <code>job.run</code> function.</p>
+
+<p>If no role is given, the <code>jobname</code> is used as the role.</p>
+
+<p>If no action is given, the job is made known but will not do anything. This
+will silence errors about missing jobs. Actions can be added by calling
+<code>jobs.add</code> again with the same name.</p>
+
+<p><code>roles</code> : used to identify the sites that are allowed to run the job. When
+the job is subsequently run, the job will either run on all sites, or on a
+subset given by the restricting roles passed to the <code>job.run</code> function.</p>
+
+<p>Roles cannot be added to existing actions, only restricted, when running.
+However, sites may be added by including them in roles after a job has been
+created, and new actions may be added in new roles. (This is unlike adding and
+updating site configurations that effect immediately on sites in the given
+roles.)</p>
+
+<p>Example roles (arrays are flattened before use):</p>
+
+<pre><code>"www"
+["test", "deploy"]
+["db", ["test", "deploy"], []]</code></pre>
+
+<p><code>actions</code> : an optional function or (nested) array of functions that all run
+in parallel on all sites that match the given role list.</p>
+
+<p>An action is a function that does some work. By default it runs to completion
+or starts or things that it does not wait for, but it can request a callback
+function one or more times by calling the <code>this.async()</code> function. <code>this</code>
+points to an action object with several other useful features including
+<code>this.shell.run</code>:</p>
+
+<pre><code>var email = require('my favorite email package');
+
+jobs.add('upload-web', 'web', function() {
+  cb = this.async();
+  this.shell.run("scripts/deploy.sh", cb);
+}
+jobs.add('upload-web', 'web', function() {
+  cb = this.async();
+  this.shell.run("scripts/backup.sh", cb);
+}
+jobs.add('upgrade-web', 'web', function() {
+  cb = this.async();
+  this.shell.run("scripts/upgrade.sh", cb);
+}
+jobs.runSequential(['upload-web', 'upgrade-web'], 'web',
+  { breakOnError: true },
+  function(err) {
+    if(err)
+      email(this.site.adminemail, "admin alert", "the backups failed");
+});</code></pre>
+
+<p>In this admittedly contrived example, we could just have called the
+above actions in single script, but by splitting it up, we can wait
+for all web servers to complete their backups and site uploads before
+switching over all servers to the new site version. By having backup
+in a separate action we get better error reporting without risking not
+running it along with the upgrade.</p>
+
+<p>When a job is added multiple times, each action is associated with
+those roles given when added to the job. In effect a job becomes a
+cluster of actions that run together, but not necessarily in the same
+place, but always at the same time.</p>
+
+<p>When a job is run, each action will at most run once on each site,
+even if the same site appear in multiple roles matching the same
+action of the job. However, if the <code>jobname</code> is listed multiple times
+in the array given to <code>jobs.run</code>, the job actions will run multiple
+times on any matching site.</p>
+
+<p>Actions within a single job always run in parallel, regardless of the
+schedule used to run multiple jobs.</p>
+
+<p>See also <code>Actions</code>.</p>
+
+<h3 id="jobs.run">jobs.run(jobs, [roles], [options], [callback])</h3>
+
+<p>Synonym for runSiteSequential.</p>
+
+<p>The list of jobs being run is called a schedule.</p>
+
+<p>The same job may appear multiple times in a schedule, and will then
+execute multiple times.</p>
+
+<p>When <code>jobs.run</code> is called, the schedule begins executing. The schedule
+has completed when the callback is being called. This means that all
+scheduled actions have of all jobs in the schedule have completed
+(successfully or otherwise). Multiple schedules can be chained by
+starting new schedules with <code>this.run</code> in the callback, or by using
+one of the related run functions.</p>
+
+<p>Chained schedules run in the same batch. <code>this.shared</code> provide access
+to a batch global shared state in all action functions and all
+schedule callbacks. <code>this.batchid</code> provides access to the globally
+unique batch identifier. All actions and schedules have unique
+identifiers prefixed by the batch identifier. The identifiers are used
+extensively in logging, and are also useful for creating temporary
+files.</p>
+
+<p>Multiple actions within a single job always run in parallel.</p>
+
+<p><code>jobs</code> : job name or (nested) array of job names. Jobs run in order at
+each site, but in parallel across different sites.</p>
+
+<p><code>roles</code> : optional name or (nested) array of role names. roles are
+just to restrict the number of sites that will execute the schedule.
+If a given job in the schedule matches the role ['www', 'db'], and
+<code>roles</code> is set to 'db', then only sites in the <code>db</code> role will execute.
+Some jobs in the schedule may not execute at all. Because all site
+names are also rules, we can restrict a job to a single site in this
+way.</p>
+
+<p><code>callback</code> : called with null or error count once all jobs have
+completed on all sites. complete is called with a schedule object as
+this pointer giving access to various functionality. See <code>Schedules</code>
+for more information about the schedule object given by the <code>this</code>
+pointer in the callback.</p>
+
+<p><code>options</code>:</p>
+
+<ul><li><code>options.roles</code>: optional role filter to restrict number of affected sites.</li><li><code>options.name</code>: optional schedule name for logging.</li><li><code>options.desc</code> : optional schedule description for logging.</li><li><code>options.breakOnError</code>: if true terminate action sequence on a site that fails.</li><li><code>options.allowMissingJob</code>: if true allow missing jobs without throwing an exception.</li><li><code>options.report</code>: if true enable custom report output, even when <code>options.log</code> disabled.</li><li><code>options.debug</code>: if true enable custom debug output - independent of <code>options.log</code>.</li><li><code>options.quiet</code>: if true suppress error messages, overridden by <code>options.log</code>.</li></ul>
+
+<h3 id="jobs.runSiteSequential">jobs.runSiteSequential(jobs, [roles], [options], [callback])</h3>
+
+<p>Run job or jobs in a <code>site-sequential</code> schedule where one job
+completes on a site before a new is started, but a new job can start
+on one site before a previous job has finished on all other sites.
+<code>callback</code> is called once all jobs have completed on all sites.</p>
+
+<p><code>jobs.run</code> is a synonym for this function as this is normally the
+desired behaviour.</p>
+
+<p>See <code>jobs.run</code> for more details.</p>
+
+<h3 id="jobs.runAtomic">jobs.runAtomic(jobs, [roles], [options], [callback])</h3>
+
+<p>Runs a job on one site at a time. Starts a new job when that last
+matching site has completed the current job. Job actions within a
+single job on a single site run concurrently. <code>callback</code> is called
+once all jobs have completed on all sites.</p>
+
+<p>See <code>jobs.run</code> for more details.</p>
+
+<h3 id="jobs.runSequential">jobs.runSequential(jobs, [roles], [options], [callback])</h3>
+
+<p>Run jobs one after another in a <code>sequential</code> schedule such that a
+single job runs concurrently on all matching sites, but also such that
+no two jobs overlap across all sites. <code>callback</code> is called once all
+jobs have completed on all sites.</p>
+
+<p>See <code>jobs.run</code> for more details.</p>
+
+<h3 id="jobs.runParallel">jobs.runParallel(jobs, [roles], [options], [callback])</h3>
+
+<p>Runs all jobs in parallel on all sites. <code>callback</code> is called once all
+job actions have completed.</p>
+
+<p>See <code>jobs.run</code> for more details.</p>
+
+<h3 id="jobs.sharePassword">jobs.sharePassword(roles, [password])</h3>
+
+<p>Assigns a common password cache to all sites currently in the given
+<code>roles</code>. Any sites added to a role subsequently will not automatically
+be included. This is in line with how site configurations normally
+work, but unlike how <code>jobs.add</code> use late binding of role names, so
+watch out for that.</p>
+
+<p>The optional <code>password</code> argument will set a password in the cache such
+the the user is not prompted if the password match.</p>
+
+<p><code>jobs.sharedPassword</code> can be called multiple times to have different
+password agents for different sites. Any existing caches will be
+replaced.</p>
+
+<p>Many other scenarios are possible, but then password agents must be
+created manually and stored manually in the <code>passwordCache</code> property
+of relevant sites, possibly using a custom merge function for updating
+site configurations. This is beyond the scope of this documentation.</p>
+              </div>
+              <div class="indent-right-margin"></div>
+              <div class="clear"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><script type="text/javascript" src="../js/sh_main.js">
+</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+</script><script type="text/javascript">
+//<![CDATA[
+    highlight(undefined, undefined, 'pre');
+    //]]>
+    </script>
+  </body>
+</html>

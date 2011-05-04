@@ -1,0 +1,103 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sh.css" />
+    <title>
+      schedule - 
+    </title>
+  </head>
+  <body>
+    <div class="fixed-wrapper">
+      <div class="container">
+        <div class="single">
+          <div class="book normal">
+            <h1 class="column align-center">
+              <a href="../index.html">Poly.shell Documentation</a>
+            </h1>
+            <p class="column align-center">
+              A set of tools to make it easy to run jobs on different systems.
+            </p>
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2>
+                  <a href="index.html">Index</a>
+                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#schedule">Schedule</a><ul><li><a href="#batch">Batch</a></li><li><a href="#chaining_Schedules_">Chaining Schedules (this.run)</a></li><li><a href="#schedule_Object">Schedule Object</a></li></ul></li></ul><hr /></div>
+<h2 id="schedule">Schedule</h2>
+
+<p>A schedule is started by <code>jobs.run</code>, or one the related functions, and ends
+when the callback is being called. See also <code>jobs.run</code>.</p>
+
+<p>The schedule object is visible as <code>this</code> in the callback function given to
+<code>jobs.run</code>.</p>
+
+<h3 id="batch">Batch</h3>
+
+<p>A batch is a context shared across chained schedules and allow chained
+schedules to inherit options from parent schedules. The batch also provide a
+globally unique identifier that prefixes all schedule identifiers in the
+batch, and not least: access to global custom shared state across all
+schedules, and all job actions in these schedules.</p>
+
+<p>Unless jobs are chained, a single schedule activated by <code>jobs.run</code> is the
+same as a single batch.</p>
+
+<h3 id="chaining_Schedules_">Chaining Schedules (this.run)</h3>
+
+<p>The schedule object can start new schedules in a chain
+which serves the dual purpose of synchronising schedules and passing
+information from previous schedules. Options like <code>roles</code>, <code>log</code> etc. are
+inherited, but new options can be given to the <code>this.run</code> function.</p>
+
+<pre><code>...
+jobs.add(...);
+...
+jobs.run(['job1', 'job2'], 'deploy', function() {
+  // callback when done
+  this.runSequential(['job3', 'job4'], 'upgrade');
+});</code></pre>
+
+<p>Chaining inherits options and roles, but can change options as
+needed, for example chaining the schedule from the default to sequential
+and the roles from 'deploy' to 'upgrade').</p>
+
+<h3 id="schedule_Object">Schedule Object</h3>
+
+<p>The schedule object (the this pointer in a <code>jobs.run</code> callback) has the
+following methods and properties:</p>
+
+<p><strong>Properties</strong></p>
+
+<ul><li><code>this.batchid</code>: a globally unique batch identifier string used to prefix all other identifiers.    </li><li><code>this.id</code>: A globally unique id for this schedule invocation with the form:
+<code>batchid-scheduleindex</code></li><li><code>this.index</code>: the schedule index of this batch, starting with 1.</li><li><code>this.issuer</code>: string uses as prefix for logging messages. It includes the schedule id and has the form:
+"[this.id] site.name"</li><li><code>this.jobs</code>: the flattened array of job names executing in this schedule, possibly with duplicates.</li><li><code>this.name</code>: an optional schedule name from the schedule options for logging.</li><li><code>this.options</code>: the options passed to <code>jobs.run</code> or <code>this.run</code>, and anything inherited from the batch.</li><li><code>this.shared</code>: access to the batch global shared object for customised information sharing.</li><li><code>this.type</code>: the schedule type, currently one of [`sequential`, `parallel`, `site-sequential`]</li></ul>
+
+<p><strong>Methods</strong></p>
+
+<ul><li><code>this.report(msg)</code>: customised logging when <code>log</code> or <code>report</code> options are true for the schedule.</li><li><code>this.debug(msg, [value])</code>: debug message and optional object inspection dump when <code>options.debug</code> is true.</li></ul>
+
+<p><strong>Chaining methods</strong></p>
+
+<ul><li><code>this.run</code></li><li><code>this.runSiteSequential</code></li><li><code>this.runSequential</code></li><li><code>this.runParallel</code></li></ul>
+
+<p>These are similar to the <code>jobs.run</code> family of functions and have access to the
+sites and jobs of the original schedule that started the batch.</p>
+              </div>
+              <div class="indent-right-margin"></div>
+              <div class="clear"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><script type="text/javascript" src="../js/sh_main.js">
+</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+</script><script type="text/javascript">
+//<![CDATA[
+    highlight(undefined, undefined, 'pre');
+    //]]>
+    </script>
+  </body>
+</html>

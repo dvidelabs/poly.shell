@@ -1,0 +1,244 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sh.css" />
+    <title>
+      sites - 
+    </title>
+  </head>
+  <body>
+    <div class="fixed-wrapper">
+      <div class="container">
+        <div class="single">
+          <div class="book normal">
+            <h1 class="column align-center">
+              <a href="../index.html">Poly.shell Documentation</a>
+            </h1>
+            <p class="column align-center">
+              A set of tools to make it easy to run jobs on different systems.
+            </p>
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2>
+                  <a href="index.html">Index</a>
+                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#sites_Overview">Sites Overview</a><ul><li><a href="#advanced_configuration">Advanced configuration</a></li></ul></li><li><a href="#sites_Reference">Sites Reference</a><ul><li><a href="#sites">sites()</a></li><li><a href="#sites.add">sites.add(names, [roles], [config], [merge])</a></li><li><a href="#sites.get">sites.get(name)</a></li><li><a href="#sites.list">sites.list(roles, [filter])</a></li><li><a href="#sites.update">sites.update(inroles, [roles], [config], [merge])</a></li><li><a href="#jobs.sites">jobs.sites</a></li></ul></li></ul><hr /></div>
+<h2 id="sites_Overview">Sites Overview</h2>
+
+<p>Sites is a collection of named configurations (environments) that
+provide information about a server. In addition to the stored
+configuration, each site also belongs to one or more roles.</p>
+
+<p>A minimal site configuration is empty for local servers and contains a
+host name for remote servers.</p>
+
+<p>Sites are used to initialise shell object and for job scheduling
+through <code>poly.jobs().sites</code>. Sites can hold any kind of information
+including complex objects, but the minimal, and typical usage, is to
+store the host name that a shell should contact when running commands.</p>
+
+<p>The host is typically configured in the file <code>.ssh/config</code>, but
+otherwise <code>user</code> name and <code>port</code> number may also be configured to help
+a shell connect to a host. See <code>poly.shell()</code>.</p>
+
+<h3 id="advanced_configuration">Advanced configuration</h3>
+
+<p>Site configurations may hold non-trivial objects. For example, a
+password cache can be stored in a site config under the name
+<code>passwordCache</code> which will be used by shells detecting a <code>sudo</code>
+prompt. The cache object not only stores a common password, but also
+holds an EventListener that queues up all shells waiting for the same
+password. The <code>jobs.sharedPassword</code> function sets up such a cache for
+sites in the given roles.</p>
+
+<h2 id="sites_Reference">Sites Reference</h2>
+
+<h3 id="sites">sites()</h3>
+
+<p>Creates a collection of environment objects indexed by name and organised
+by roles:</p>
+
+<pre><code>sites = require('poly').sites();</code></pre>
+
+<p>We use the term <code>site</code> loosely to reference a site name, the
+configuration object of a site, or the physical location represented
+by the name.</p>
+
+<p>Note: <code>sites()</code> creates a generic environments collection with role
+support. The environments collection can by used for a number of other
+purposes:</p>
+
+<pre><code>var sites = require('poly').sites();
+
+// the above is equivalent to:
+
+var envs = require('poly').envs();</code></pre>
+
+<h3 id="sites.add">sites.add(names, [roles], [config], [merge])</h3>
+
+<pre><code>var sites = require('poly').sites();
+
+sites.add('example', 'test', { host: 'test.example.com' });
+sites.add('host1', { host: 'www1.example.com' });
+sites.add('host2', { host: 'www2.example.com' });
+sites.add('host1-admin', { host: 'www1.example.com',
+  port: 8000, path: "sites/admin" });
+sites.add('local');</code></pre>
+
+<p>Sites are always organised into roles. In the above example the sites
+are already added to the roles given by their own name. The <code>example</code>
+site is also added to the <code>test</code> role.</p>
+
+<p>We can add more roles later:</p>
+
+<pre><code>// ...
+sites.add(['host1', 'host2'], ['www', 'deploy']);
+sites.add(['host1-admin', 'local'], 'admin');</code></pre>
+
+<p><code>names</code> : a site name, or a (nested) array of sites names to be
+created or updated. It is valid to add to an existing site. (Nesting
+is just a convenience with no significance.)</p>
+
+<p><code>roles</code> : optional role name or (nested) array of role names. (Nesting
+is just a convenience with no significance.). sites are assigned to
+the listed roles if any. This makes it possible to reference a group
+of sites by a single name. A site always belong to a role with the
+same name as the site name to make it easy to target specific sites in
+functions that only accept role names.</p>
+
+<p><code>config</code> : an optional configuration object (or environment if you
+like) that is applied to all to all listed sites. The config is
+<strong>not</strong> assigned to roles. Only those sites currently listed will
+receive the configuration. If a site already exists, the configuration
+object will be extended by adding new names to the old object, but
+entirely overwriting old data where the top-level names conflict.
+Configurations are always cloned so the input object will never be
+changed by modifying a site, and sites added simultaneously will have
+separate copies.</p>
+
+<p><code>merge</code> : an optional merge function that is applied if a config
+object already exists. The default is to use the _.extend function
+from the underscore library. <code>merge</code> has the form <code>merge(x, y)</code> where
+<code>x</code> is the existing object that must be updated in-place, and <code>y</code> is
+the new config object given as argument to <code>sites.add</code>.</p>
+
+<p>A configuration object always has a property named 'name' which is
+identical to the site name. It cannot be overridden, but it can be
+changed for "personal" use without ill-effects after calling
+<code>sites.get()</code>.</p>
+
+<pre><code>var sites = require('poly').sites();
+
+sites.add('foo', { name: "bar", x: "1" });
+sites.get('foo');
+  // =&gt; { name: "foo", "x: "1" }
+
+sites.add(['site1', 'site2'], { x: "1", y: "2" });
+
+sites.get('site1');
+  // =&gt; { name: "site1", x: "1", y: "2" }
+sites.get('site2');
+  // =&gt; { name: "site2", x: "1", y: "2" }
+
+sites.add('site2',
+  { z: 3, info: { tags: [ "test", "online" ], timeout: 4000 } });
+
+sites.get('site1')
+  // =&gt; { name: "site1", x: "1", y: "2" }
+sites.get('site2')
+  // =&gt; { name: "site2", x: "1", y: "2", z: 3,
+  //      info: { tags: [ "test", "online" ], timeout: 4000 } }
+
+sites.add('site2', { info: { tags: [ "busy" ] } });
+
+sites.get('site1');
+  // =&gt; { name: "site1", x: "1", y: "2" }
+sites.get('site2');
+  // =&gt; { name: "site2", x: "1", y: "2", z: 3,
+  // info: { tags: [ "busy" ] } }</code></pre>
+
+<p>The above behaviour can be changed with a custom merge function.</p>
+
+<h3 id="sites.get">sites.get(name)</h3>
+
+<p>Returns a copy of the configuration currently stored for the named
+site, or null if the site is not present.</p>
+
+<p><code>name</code> : name of site.</p>
+
+<pre><code>var sites = require('poly').sites()
+
+sites.add('ex', 'www', { host: "app.example.com" });
+sites.get('ex');
+  // =&gt; { name: 'ex', x: "1", y: "2" }
+sites.get('www');
+  // =&gt; null
+sites.get('app.example.com');
+  // =&gt; null
+sites.get(sites.list('www').shift());
+  // =&gt; { name: 'ex', x: "1", y: "2" }</code></pre>
+
+<p>Any changes to an object returned by get will not have any effect on
+the configuration stored in the sites collection.</p>
+
+<h3 id="sites.list">sites.list(roles, [filter])</h3>
+
+<p>Returns an array of matching site names. The result can be an empty
+array, an array with one element, or a flat array with more elements.
+There will be no duplicate site names.</p>
+
+<p><code>roles</code> : a role name or a (nested) array of role names. All sites
+existing in at least one of the roles will be returned. If <code>roles</code> is
+empty or null, an empty array is returned.</p>
+
+<p><code>filter</code> : an optional role name or a (nested) array of role names
+similar to <code>roles</code>. If present a site must exist in both roles and
+filter in order to be include in the result set. The filter is used by
+the job controller to restrict the number of sites a job would
+normally target.</p>
+
+<h3 id="sites.update">sites.update(inroles, [roles], [config], [merge])</h3>
+
+<p>A shorthand for <code>sites.add(sites.list(inroles), roles, config, merge)</code>;</p>
+
+<p>Updates all sites in the given <code>inroles</code> simultaneously, but will
+not create any new sites.</p>
+
+<h3 id="jobs.sites">jobs.sites</h3>
+
+<p>Sites are used by the job controller. The job controller automatically
+creates a sites collection if one is not being passed when the job
+controller is created:</p>
+
+<pre><code>var jobs = require('poly').jobs();
+var sites = jobs.sites;</code></pre>
+
+<p>or, to share sites between different job controllers:</p>
+
+<pre><code>var poly = require('poly');
+var sites = poly.sites();
+
+var jobs = poly.jobs(sites);
+  // sites === jobs.sites
+
+jobs2 = poly.jobs(sites);
+  // sites === jobs2.sites</code></pre>
+              </div>
+              <div class="indent-right-margin"></div>
+              <div class="clear"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><script type="text/javascript" src="../js/sh_main.js">
+</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+</script><script type="text/javascript">
+//<![CDATA[
+    highlight(undefined, undefined, 'pre');
+    //]]>
+    </script>
+  </body>
+</html>

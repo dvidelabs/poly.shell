@@ -1,0 +1,165 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <link rel="stylesheet" type="text/css" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sh.css" />
+    <title>
+      action - 
+    </title>
+  </head>
+  <body>
+    <div class="fixed-wrapper">
+      <div class="container">
+        <div class="single">
+          <div class="book normal">
+            <h1 class="column align-center">
+              <a href="../index.html">Poly.shell Documentation</a>
+            </h1>
+            <p class="column align-center">
+              A set of tools to make it easy to run jobs on different systems.
+            </p>
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2>
+                  <a href="index.html">Index</a>
+                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#actions">Actions</a><ul><li><a href="#action_Object">Action Object</a></li></ul></li></ul><hr /></div>
+<h2 id="actions">Actions</h2>
+
+<p>An action is an anonymous function with no arguments that is added to a job
+using the <code>jobs.add</code> method:</p>
+
+<pre><code>jobs = require('poly').jobs();
+
+jobs.add('rollback', function() {
+  this.report("this function is the rollback action");
+});</code></pre>
+
+<p>A job can have multiple actions in different roles. This can, for example, be
+used to add OS specific actions:</p>
+
+<pre><code>jobs = require('poly').jobs();
+jobs.sites.add('d1', 'debian', { host: 'd1.example.com' });
+jobs.sites.add('d2', 'debian', { host: 'd2.example.com' });
+jobs.sites.add('c1', 'centos', { host: 'c1.example.com' });
+
+jobs.add('sysupdate', ['debian'], function() {
+  // ...
+});
+jobs.add('sysupdate', ['centos'], function() {
+  // ...
+});
+date = new Date();
+if(date.getDay() === "Tuesday")
+  jobs.run('sysupdate');
+else
+  jobs.run('sysupdate', 'debian');</code></pre>
+
+<p>If we want to add multiple actions that execute together concurrently, this
+can be done by adding using the same roles in subsequent calls to <code>job.add</code>,
+or by providing an array of functions to <code>jobs.add</code>.</p>
+
+<p>When a job is executing, none, some, or all of the actions may execute
+depending on available sites and role restrictions given to the executing
+schedule.</p>
+
+<p>A single site may execute multiple (different) actions for a single job
+invocation, but a single action will at most execute once per site per job
+invocation. If the same job is invoked multiple times, such as an archiving
+snapshot job might, the action will run again on the same site on next job
+invocation. The next invocation will have a fresh action id.</p>
+
+<p>Because a job invocation may be fragmented into multiple actions executing on
+the same site, an action invocation is also called a job fragment. Fragments
+are those actions that are actively executing on a site in a given job
+invocation.</p>
+
+<p>Each action invocation has a non-repeatable globally unique identifier. Two
+actions in the same job will have different identifiers. The same action on
+different sites will have different identifiers. The same action on the same
+site in two different job invocations will have different identifiers.</p>
+
+<p>To get some less unique identifiers, a combination of <code>this.batchid</code>,
+<code>this.site.name</code> and <code>this.job</code> may provide the necessary means for
+communication across actions in, for example, the file system, a database, or
+in the <code>this.shared</code> object.</p>
+
+<p>Action identifiers are used to tag log messages such as action is now starting
+on this site... Custom logging with identifier tag is available through the
+<code>this.report</code> and <code>this.debug</code> functions inside actions.</p>
+
+<h3 id="action_Object">Action Object</h3>
+
+<p>The object referenced by <code>this</code> inside actions is called the action object, and has
+the following methods and properties:</p>
+
+<p><strong>Properties</strong></p>
+
+<ul><li><code>this.batchid</code>:
+a globally unique identifier for this batch, used to prefix action id.
+<code>this.count</code>:
+the action invocation index of this batch, starting with 1. The index is
+unique to this action within the current batch.</li><li><code>this.fragment</code>:
+a number between 1 and <code>fragments</code>. The same action may have a different fragment
+number on a different site, but it is unique for the current job
+invocation on the current site.
+Logging use the job name suffix <code>(fragment/fragments)</code> when there is more than
+one fragment.</li><li><code>this.fragments</code>:
+the total number of actions (fragments) running in this job invocation on this site.</li><li><code>this.id</code>:
+the action id is globally is unique for this invocation. It has the form:
+<code>batchid-scheduleindex-actionindex</code>.</li><li><code>this.issuer</code>:
+the issuer is a string used for logging. It has the form:
+<code>[batchid-scheduleindex-actionindex] sitename</code></li><li><code>this.index</code>:
+index of this action within the current schedule. Used as the third value in
+the <code>this.id</code> string.</li><li><code>this.jobname</code>:
+name of the currently executing jobs (but not which invocation within the schedule).</li><li><code>this.options</code>:
+direct and inherited schedule options.</li><li><code>this.shared</code>:
+a batch global shared object for customised information sharing.</li><li><code>this.shell</code>:
+the shell object configured with data from site config and
+schedule options such as <code>options.log</code>. Run local or remote shells using <code>this.shell.run</code>.
+See also <code>Shell</code>.</li><li><code>this.site</code>:
+the site configuration object, for example used to access the site name through: <code>this.site.name</code>.</li></ul>
+
+<p><strong>Methods</strong></p>
+
+<ul><li><code>this.debug(msg, [value])</code>:
+debug message and optional object inspection dump when <code>debug</code> option is true.</li><li><code>this.report(msg)</code>:
+customised logging when <code>log</code> or <code>report</code> options are true for the schedule.</li></ul>
+
+<p><strong>Flow and Error Control</strong></p>
+
+<ul><li><code>this.async() =&gt; callback(err)</code>:
+acquires a callback function: "callback = <code>this.async()</code>" that can be
+called by asynchronous functions, for example <code>this.shell.run(cmd, callback)</code>.
+<code>async()</code> may be called multiple times to coordinate multiple
+async methods in the action. Each acquired callback <strong>must</strong> be called
+exactly once, either with null or an error. <code>this.async()</code> must not be
+called after the action has returned unless there are uncalled callbacks
+acquired by other calls to <code>this.async()</code> with the same <code>this</code> reference.</li><li><code>this.fail(err)</code>:
+report an error for synchronous actions that do not need a callback.
+Can be called with null which has no effect. Synchronous method may, as an
+alternative, acquire a callback with <code>this.async()</code> and call the returned
+callback with an error code. <code>fail</code> is simply shorthand for this.</li></ul>
+
+<p>If a callback from <code>async()</code> has been called with an error, or fail has been
+called at least once with an error, the action will fail. Depending on
+schedule <code>options.breakOnError</code> this may stop the schedule prematurely, but
+concurrent actions will not stop.</p>
+              </div>
+              <div class="indent-right-margin"></div>
+              <div class="clear"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><script type="text/javascript" src="../js/sh_main.js">
+</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+</script><script type="text/javascript">
+//<![CDATA[
+    highlight(undefined, undefined, 'pre');
+    //]]>
+    </script>
+  </body>
+</html>
