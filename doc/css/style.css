@@ -170,8 +170,6 @@ body {
   border-color: #eee;
   border-style: solid;
   border-width: thin;
-/* needed when embedding .book content */
-  overflow: auto;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -256,7 +254,7 @@ p, .book p {
   font-size: 0.875em; 
 }
 
-.book li {
+.book li, .book li p code {
   font-size: 0.875em;
 }
 
