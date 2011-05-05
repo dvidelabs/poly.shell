@@ -24,6 +24,8 @@ build/doc/readme.html: README.md docinit
 	$(NODE) ext/doctool/doctool.js doc/layout.html $< $@
 
 doc: $(apidocs) $(docs) build/doc/readme.html
+	@echo "generated html in folder build/doc"
+
 
 node_modules/flag:
 	@npm install
@@ -38,6 +40,7 @@ js: dep
 	@mkdir -p build/js
 	@mkdir -p build/js/lib
 	@mkdir -p build/js/test
+	@mkdir -p build/js/rtest
 	@mkdir -p build/js/examples
 	@${COFFEE} -c -o build/js/lib lib/*.coffee
 	@${COFFEE} -c -o build/js/test test/*.coffee
@@ -45,7 +48,7 @@ js: dep
 	@cp index.js build/js
 	@cp -r examples/*.js build/js/examples
 	@cp -rf node_modules build/js/node_modules
-	@echo "generated javascript in folder gen-js"
+	@echo "generated javascript in folder build/js"
 
 clean:
 	@rm -rf tmp
