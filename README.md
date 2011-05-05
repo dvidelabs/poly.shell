@@ -1,5 +1,5 @@
 # Poly.shell
-## - distributed shell job control with role based configuration for Node.js
+*- distributed shell job control with role based configuration for Node.js*
 
 Poly.shell is primarily intended to administer server clusters, but it
 can also be used to schedule other kinds of distributed computation, or

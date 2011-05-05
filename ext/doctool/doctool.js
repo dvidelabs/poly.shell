@@ -36,8 +36,7 @@ function cap(name) {
 }
 
 function filenameToTitle(fn) {
-  return '<h1>' + cap(fn.replace('_', " ")) + '</h1>' + 
-    '<p></p><p><a href="' + docroot + 'index.html">... back to overview</a></p>';
+  return '<h1>' + cap(fn.replace('_', " ")) + '</h1>';
 }
 
 function generateToc(data) {
@@ -45,7 +44,8 @@ function generateToc(data) {
     , first_level = 0
     , toc = [
       '<div id="toc">',
-      '<h2>Table of Contents</h2>'
+      '<h2>Table of Contents</h2>',
+      '<ul><li><a href="'+docroot+'index.html">Back to Overview ...</a></li></ul>'
     ];
 
   data.replace(/(^#+)\W+([^$\n]+)/gmi, function(src, level, text) {
@@ -77,7 +77,6 @@ function generateToc(data) {
     toc.push("</ul>");
   }
 
-  toc.push("<hr />")
   toc.push("</div>");
 
   return toc.join("");
@@ -132,10 +131,14 @@ if (argc > 3) {
       }
       output = output.replace("{{section}}", filename+" - ");
       output = output.replace("{{section-title}}", filenameToTitle(filename));
+      output = output.replace("{{toc}}", toc);
+      output = output.replace("{{content}}", html);
     } else {
       output = output.replace("{{section}}", "");
       output = output.replace("{{section-title}}", "");
-      output = output.replace(/<body([^>]*)>/, '<body class="'+filename+'" $1>');
+      //output = output.replace(/<body([^>]*)>/, '<body class="'+filename+'" $1>');
+      output = output.replace("{{toc}}", html);
+      output = output.replace("{{content}}", "");
     }
     output = output.replace(/\{\{docroot\}\}/g, docroot);
     
@@ -143,8 +146,6 @@ if (argc > 3) {
       html = "Sorry, this section is currently undocumented, \
 but we'll be working on it.";
     }
-    output = output.replace("{{toc}}", toc);
-    output = output.replace("{{content}}", html);
 
     if (argc > 4) {
       fs.writeFile(argv[4], output);
