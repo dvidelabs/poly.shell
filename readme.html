@@ -12,21 +12,51 @@
   <body>
     <div class="fixed-wrapper">
       <div class="container">
-        <div class="single">
-          <div class="book normal">
-            <h1 class="column align-center">
-              <a href="index.html">Poly.shell Documentation</a>
+        <div class="book normal">
+          <div class="single align-center">
+            <h1>
+              Poly.shell Documentation
             </h1>
-            <p class="column align-center">
+            <p>
               A set of tools to make it easy to run jobs on different systems.
-            </p>
+            </p><h1>README</h1>
+          </div>
+          <div class="single small">
             <div class="indent">
               <div class="indent-left-margin"></div>
               <div class="indent-content">
-                <div id="toc"><h2>Table of Contents</h2><ul><li><a href="#poly.shell">Poly.shell</a><ul><li><a href="#distributed_shell_job_control_with_role_based_configuration">distributed shell job control with role based configuration</a></li><li><a href="#installation">Installation</a></li><li><a href="#coffeeScript">CoffeeScript</a></li><li><a href="#job_Scheduling">Job Scheduling</a></li><li><a href="#passwords">Passwords</a></li><li><a href="#scheduling">Scheduling</a></li></ul></li></ul><hr /></div>
-<h1>Poly.shell</h1>
+                <div class="first wide small">
+                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="index.html">Back to Overview ...</a></li></ul><ul><li><a href="#poly.shell">Poly.shell</a><ul><li><a href="#resources">Resources</a></li><li><a href="#installation">Installation</a></li><li><a href="#coffeeScript">CoffeeScript</a></li><li><a href="#job_Scheduling">Job Scheduling</a></li><li><a href="#passwords">Passwords</a></li><li><a href="#scheduling">Scheduling</a></li></ul></li></ul></div>
+                </div>
+                <div class="last narrow">
+                  <h2>
+                    Resources
+                  </h2>
+                  <h3>
+                    GitHub Repository
+                  </h3>
+                  <p>
+                    <a href="https://github.com/dvidelabs/poly.shell">https://github.com/dvidelabs/poly.shell</a>
+                  </p>
+                  <h3>
+                    Online Documentation
+                  </h3>
+                  <p>
+                    <a href="http://dvidelabs.github.com/poly.shell">http://dvidelabs.github.com/poly.shell</a>
+                  </p>
+                </div>
+                <div class="indent-right-margin"></div>
+              </div>
+            </div>
+            <div class="clear"></div>
+          </div>
+          <div class="single normal">
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h1>Poly.shell</h1>
 
-<h2 id="_distributed_shell_job_control_with_role_based_configuration">- distributed shell job control with role based configuration</h2>
+<p><em>- distributed shell job control with role based configuration for Node.js</em></p>
 
 <p>Poly.shell is primarily intended to administer server clusters, but it
 can also be used to schedule other kinds of distributed computation, or
@@ -54,11 +84,24 @@ local shell commands:</p>
 
 <pre><code>require('poly').shell('example.com').run("ls");</code></pre>
 
+<h2 id="resources">Resources</h2>
+
+<p>Repository:</p>
+
+<p><a href="https://github.com/dvidelabs/poly.shell">https://github.com/dvidelabs/poly.shell</a></p>
+
+<p>Online Documentation:</p>
+
+<p><a href="http://dvidelabs.github.com/poly.shell/">http://dvidelabs.github.com/poly.shell/</a></p>
+
 <h2 id="installation">Installation</h2>
 
-<p>Download to some user local folder.</p>
+<p>To install latest public release with npm:</p>
 
-<p>Enter folder and install using npm:</p>
+<pre><code>npm install -g poly</code></pre>
+
+<p>Or download or clone from github to some user local folder.
+Enter folder and install using npm:</p>
 
 <pre><code>npm install</code></pre>
 
@@ -108,7 +151,7 @@ sites.update('app', {
 });
 
 jobs.add('deploy', 'app', function() {
-  var status = {}
+  var status = {};
   var cb = this.async(); // hold next job until script completes
   this.shared[this.site.name] = status;
   this.shell.run("mydeployscript.sh", function(ec, capture) {
@@ -146,7 +189,7 @@ jobs.add('update', 'app', function() {
 
 jobs.add('prepare', 'local', function() {
   console.log("todo checkout data into this.site.scripts and this.site.www");
-}
+});
 
 // prepare data for upload on local system
 jobs.run('prepare', function() {
@@ -215,17 +258,17 @@ for example. The password cache and agent does something similar.
 Locking provides a good algorithm for scheduling transactions.</p>
               </div>
               <div class="indent-right-margin"></div>
-              <div class="clear"></div>
             </div>
           </div>
+          <div class="clear"></div>
         </div>
-      </div>
-    </div><script type="text/javascript" src="js/sh_main.js">
+      </div><script type="text/javascript" src="js/sh_main.js">
 </script><script type="text/javascript" src="js/sh_javascript.min.js">
 </script><script type="text/javascript">
 //<![CDATA[
-    highlight(undefined, undefined, 'pre');
-    //]]>
-    </script>
+      highlight(undefined, undefined, 'pre');
+      //]]>
+      </script>
+    </div>
   </body>
 </html>

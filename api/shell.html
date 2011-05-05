@@ -12,21 +12,49 @@
   <body>
     <div class="fixed-wrapper">
       <div class="container">
-        <div class="single">
-          <div class="book normal">
-            <h1 class="column align-center">
-              <a href="../index.html">Poly.shell Documentation</a>
+        <div class="book normal">
+          <div class="single align-center">
+            <h1>
+              Poly.shell Documentation
             </h1>
-            <p class="column align-center">
+            <p>
               A set of tools to make it easy to run jobs on different systems.
-            </p>
+            </p><h1>Shell</h1>
+          </div>
+          <div class="single small">
             <div class="indent">
               <div class="indent-left-margin"></div>
               <div class="indent-content">
-                <h2>
-                  <a href="index.html">Index</a>
-                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#shell_Overview">Shell Overview</a><ul><li><a href="#shell_with_Job_Actions">Shell with Job Actions</a></li><li><a href="#standalone_Shell_Usage">Standalone Shell Usage</a></li><li><a href="#callbacks">Callbacks</a></li><li><a href="#capturing_Output">Capturing Output</a></li><li><a href="#redirecting_Output">Redirecting Output</a></li><li><a href="#sudo">sudo</a></li><li><a href="#transferring_Files">Transferring Files</a></li></ul></li><li><a href="#shell_Reference">Shell Reference</a><ul><li><a href="#shell">shell([host], [options])</a></li><li><a href="#shell.run_">shell.run(cmd, [callback(err, capture)])</a></li><li><a href="#shell.sudo_">shell.sudo(cmd, [callback(err, capture)])</a></li><li><a href="#shell.upload">shell.upload(sources, dest, [cb])</a></li><li><a href="#shell.download">shell.download(sources, dest, [cb])</a></li><li><a href="#shell.upmirror">shell.upmirror(sources, dest, [cb])</a></li><li><a href="#shell.downmirror">shell.downmirror(sources, dest, [cb])</a></li><li><a href="#shell.downsync">shell.downsync(sources, dest, [args], [cb])</a></li><li><a href="#shell.upsync">shell.upsync(sources, dest, [args], [cb])</a></li><li><a href="#shell.spawn">shell.spawn(cmd, args, [cb])</a></li><li><a href="#shell.setPassword">shell.setPassword(password)</a></li><li><a href="#shell.resetPassword">shell.resetPassword()</a></li><li><a href="#shell.promptPassword_">shell.promptPassword(prompt, [callback(err)])</a></li><li><a href="#shell.log">shell.log</a></li><li><a href="#shell.options">shell.options</a></li><li><a href="#shell.remote">shell.remote</a></li><li><a href="#shell.shellCmd">shell.shellCmd</a></li><li><a href="#shell.shellArgs">shell.shellArgs</a></li><li><a href="#shell.passwordCache">shell.passwordCache</a></li></ul></li></ul><hr /></div>
-<h2 id="shell_Overview">Shell Overview</h2>
+                <div class="first wide small">
+                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="../index.html">Back to Overview ...</a></li></ul><ul><li><a href="#shell_Overview">Shell Overview</a><ul><li><a href="#shell_with_Job_Actions">Shell with Job Actions</a></li><li><a href="#standalone_Shell_Usage">Standalone Shell Usage</a></li><li><a href="#callbacks">Callbacks</a></li><li><a href="#capturing_Output">Capturing Output</a></li><li><a href="#redirecting_Output">Redirecting Output</a></li><li><a href="#sudo">sudo</a></li><li><a href="#transferring_Files">Transferring Files</a></li></ul></li><li><a href="#shell_Reference">Shell Reference</a><ul><li><a href="#shell">shell([host], [options])</a></li><li><a href="#shell.run_">shell.run(cmd, [callback(err, capture)])</a></li><li><a href="#shell.sudo_">shell.sudo(cmd, [callback(err, capture)])</a></li><li><a href="#shell.upload">shell.upload(sources, dest, [cb])</a></li><li><a href="#shell.download">shell.download(sources, dest, [cb])</a></li><li><a href="#shell.upmirror">shell.upmirror(sources, dest, [cb])</a></li><li><a href="#shell.downmirror">shell.downmirror(sources, dest, [cb])</a></li><li><a href="#shell.downsync">shell.downsync(sources, dest, [args], [cb])</a></li><li><a href="#shell.upsync">shell.upsync(sources, dest, [args], [cb])</a></li><li><a href="#shell.spawn">shell.spawn(cmd, args, [cb])</a></li><li><a href="#shell.setPassword">shell.setPassword(password)</a></li><li><a href="#shell.resetPassword">shell.resetPassword()</a></li><li><a href="#shell.promptPassword_">shell.promptPassword(prompt, [callback(err)])</a></li><li><a href="#shell.log">shell.log</a></li><li><a href="#shell.options">shell.options</a></li><li><a href="#shell.remote">shell.remote</a></li><li><a href="#shell.shellCmd">shell.shellCmd</a></li><li><a href="#shell.shellArgs">shell.shellArgs</a></li><li><a href="#shell.passwordCache">shell.passwordCache</a></li></ul></li></ul></div>
+                </div>
+                <div class="last narrow">
+                  <h2>
+                    Resources
+                  </h2>
+                  <h3>
+                    GitHub Repository
+                  </h3>
+                  <p>
+                    <a href="https://github.com/dvidelabs/poly.shell">https://github.com/dvidelabs/poly.shell</a>
+                  </p>
+                  <h3>
+                    Online Documentation
+                  </h3>
+                  <p>
+                    <a href="http://dvidelabs.github.com/poly.shell">http://dvidelabs.github.com/poly.shell</a>
+                  </p>
+                </div>
+                <div class="indent-right-margin"></div>
+              </div>
+            </div>
+            <div class="clear"></div>
+          </div>
+          <div class="single normal">
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2 id="shell_Overview">Shell Overview</h2>
 
 <p>The most important use of the shell is the shell object automatically
 created inside job actions, but shells can be used in isolation for
@@ -109,7 +137,8 @@ shell.run("ls", function(ec) {
   if(ec)
     console.log("ls failed with error code: " + err);
   else
-    console.log("done");</code></pre>
+    console.log("done");
+});</code></pre>
 
 <h3 id="capturing_Output">Capturing Output</h3>
 
@@ -120,20 +149,21 @@ captures the output to a buffer for use in callbacks:</p>
 
 shell().run("ls", function(ec, capture) {
     if(!ec)
-      console.log("output was: " + capture() + "!");
-}</code></pre>
+      console.log("output was: " + capture.out() + "!");
+});</code></pre>
 
-<p>Notice that <code>capture</code> is a function that we call to access the
-captured output. This converts the internal buffers to a string while
-avoiding the conversion for commands that do not need it.</p>
+<p>Notice that <code>capture</code> is an object with two functions:
+<code>capture.out([encoding = 'utf8'])</code> and <code>capture.err([encoding =
+'utf8'])</code>. Each call converts the captured buffers to a string with
+the optional encoding.</p>
 
-<p>The capture is limited to 64K, but can be changed using the
-<code>option.captureLimit</code> in the Shell constructor (this is also a site
-configuration option). Any output beyond the limit will not show up in
-the output() function, but will still be written to the output stream.
-Capturing can be disabled by setting <code>captureLimit = 0</code> If no callback
-is given, output is not captured at all, but still written to the
-output stream.</p>
+<p>The capture is limited to 64K per stream, but this can be changed
+using the <code>option.captureLimit</code> in the Shell constructor (this is also
+a site configuration option). Any output beyond the limit will not
+show up in the output() function, but will still be written to the
+output stream. Capturing can be disabled by setting <code>captureLimit = 0</code>
+If no callback is given, output is not captured at all, but still
+written to the output stream.</p>
 
 <h3 id="redirecting_Output">Redirecting Output</h3>
 
@@ -224,7 +254,8 @@ var host = shell('example.com');
 
 host.promptPassword();
 host.sudo("ls", function(err) {
-  if(err) { host.resetPassword(); } });</code></pre>
+  if(err) { host.resetPassword(); }
+});</code></pre>
 
 <p>In the above example, we have chosen to reset the password after the
 shell returns.</p>
@@ -272,7 +303,9 @@ source. Careless use of mirror can lead to extensive data loss.</em></p>
 level <code>shell.upsync</code> and <code>shell.downsync</code> functions which take
 additional rsync arguments. The up- and download functions are
 implemented by these functions using <code>['-azP']</code> as argument. The up-
-and downmirror functions uses the arguments <code>['-azP','--delete']</code>:</p>
+and downmirror functions uses the arguments <code>['-azP','--delete']</code>.</p>
+
+<p>Here an example of a custom download function:</p>
 
 <pre><code>var mydownload = function(host, port, user, sources, dest) {
   shell({ host: host, user: user, port: port}
@@ -283,7 +316,7 @@ and downmirror functions uses the arguments <code>['-azP','--delete']</code>:</p
 are passed to rsync using the rsync -e option. For example:</p>
 
 <pre><code>var host = shell({ host: "example.com",
-  port: 10000, user: beatrice });
+  port: 10000, user: "beatrice" });
 host.upsync("localfile", "destfile", ['-z']);</code></pre>
 
 <p>becomes:</p>
@@ -536,17 +569,17 @@ password cache object if none were provided. The property can be used to
 initialise new shells that share the same password.</p>
               </div>
               <div class="indent-right-margin"></div>
-              <div class="clear"></div>
             </div>
           </div>
+          <div class="clear"></div>
         </div>
-      </div>
-    </div><script type="text/javascript" src="../js/sh_main.js">
-</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+      </div><script type="text/javascript" src="js/sh_main.js">
+</script><script type="text/javascript" src="js/sh_javascript.min.js">
 </script><script type="text/javascript">
 //<![CDATA[
-    highlight(undefined, undefined, 'pre');
-    //]]>
-    </script>
+      highlight(undefined, undefined, 'pre');
+      //]]>
+      </script>
+    </div>
   </body>
 </html>

@@ -12,21 +12,49 @@
   <body>
     <div class="fixed-wrapper">
       <div class="container">
-        <div class="single">
-          <div class="book normal">
-            <h1 class="column align-center">
-              <a href="../index.html">Poly.shell Documentation</a>
+        <div class="book normal">
+          <div class="single align-center">
+            <h1>
+              Poly.shell Documentation
             </h1>
-            <p class="column align-center">
+            <p>
               A set of tools to make it easy to run jobs on different systems.
-            </p>
+            </p><h1>Jobs</h1>
+          </div>
+          <div class="single small">
             <div class="indent">
               <div class="indent-left-margin"></div>
               <div class="indent-content">
-                <h2>
-                  <a href="index.html">Index</a>
-                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#jobs_Overview">jobs() Overview</a></li><li><a href="#jobs_Reference">jobs() Reference</a><ul><li><a href="#jobs.add">jobs.add(jobname, [roles], [actions])</a></li><li><a href="#jobs.run">jobs.run(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSiteSequential">jobs.runSiteSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runAtomic">jobs.runAtomic(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSequential">jobs.runSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runParallel">jobs.runParallel(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.sharePassword">jobs.sharePassword(roles, [password])</a></li></ul></li></ul><hr /></div>
-<h2 id="jobs_Overview">jobs() Overview</h2>
+                <div class="first wide small">
+                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="../index.html">Back to Overview ...</a></li></ul><ul><li><a href="#jobs_Overview">jobs() Overview</a></li><li><a href="#jobs_Reference">jobs() Reference</a><ul><li><a href="#jobs.add">jobs.add(jobname, [roles], [actions])</a></li><li><a href="#jobs.run">jobs.run(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSiteSequential">jobs.runSiteSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runAtomic">jobs.runAtomic(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runSequential">jobs.runSequential(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.runParallel">jobs.runParallel(jobs, [roles], [options], [callback])</a></li><li><a href="#jobs.sharePassword">jobs.sharePassword(roles, [password])</a></li></ul></li></ul></div>
+                </div>
+                <div class="last narrow">
+                  <h2>
+                    Resources
+                  </h2>
+                  <h3>
+                    GitHub Repository
+                  </h3>
+                  <p>
+                    <a href="https://github.com/dvidelabs/poly.shell">https://github.com/dvidelabs/poly.shell</a>
+                  </p>
+                  <h3>
+                    Online Documentation
+                  </h3>
+                  <p>
+                    <a href="http://dvidelabs.github.com/poly.shell">http://dvidelabs.github.com/poly.shell</a>
+                  </p>
+                </div>
+                <div class="indent-right-margin"></div>
+              </div>
+            </div>
+            <div class="clear"></div>
+          </div>
+          <div class="single normal">
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2 id="jobs_Overview">jobs() Overview</h2>
 
 <pre><code>var jobs = require('poly').jobs();
 var sites = jobs.sites;</code></pre>
@@ -77,17 +105,14 @@ points to an action object with several other useful features including
 <pre><code>var email = require('my favorite email package');
 
 jobs.add('upload-web', 'web', function() {
-  cb = this.async();
-  this.shell.run("scripts/deploy.sh", cb);
-}
+  this.shell.run("scripts/deploy.sh", this.async());
+});
 jobs.add('upload-web', 'web', function() {
-  cb = this.async();
-  this.shell.run("scripts/backup.sh", cb);
-}
+  this.shell.run("scripts/backup.sh", this.async());
+});
 jobs.add('upgrade-web', 'web', function() {
-  cb = this.async();
-  this.shell.run("scripts/upgrade.sh", cb);
-}
+  this.shell.run("scripts/upgrade.sh", this.async());
+});
 jobs.runSequential(['upload-web', 'upgrade-web'], 'web',
   { breakOnError: true },
   function(err) {
@@ -142,7 +167,8 @@ identifiers prefixed by the batch identifier. The identifiers are used
 extensively in logging, and are also useful for creating temporary
 files.</p>
 
-<p>Multiple actions within a single job always run in parallel.</p>
+<p>Multiple actions within a single job always run in parallel on the
+same site.</p>
 
 <p><code>jobs</code> : job name or (nested) array of job names. Jobs run in order at
 each site, but in parallel across different sites.</p>
@@ -223,17 +249,17 @@ of relevant sites, possibly using a custom merge function for updating
 site configurations. This is beyond the scope of this documentation.</p>
               </div>
               <div class="indent-right-margin"></div>
-              <div class="clear"></div>
             </div>
           </div>
+          <div class="clear"></div>
         </div>
-      </div>
-    </div><script type="text/javascript" src="../js/sh_main.js">
-</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+      </div><script type="text/javascript" src="js/sh_main.js">
+</script><script type="text/javascript" src="js/sh_javascript.min.js">
 </script><script type="text/javascript">
 //<![CDATA[
-    highlight(undefined, undefined, 'pre');
-    //]]>
-    </script>
+      highlight(undefined, undefined, 'pre');
+      //]]>
+      </script>
+    </div>
   </body>
 </html>

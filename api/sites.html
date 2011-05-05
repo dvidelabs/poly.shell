@@ -12,21 +12,49 @@
   <body>
     <div class="fixed-wrapper">
       <div class="container">
-        <div class="single">
-          <div class="book normal">
-            <h1 class="column align-center">
-              <a href="../index.html">Poly.shell Documentation</a>
+        <div class="book normal">
+          <div class="single align-center">
+            <h1>
+              Poly.shell Documentation
             </h1>
-            <p class="column align-center">
+            <p>
               A set of tools to make it easy to run jobs on different systems.
-            </p>
+            </p><h1>Sites</h1>
+          </div>
+          <div class="single small">
             <div class="indent">
               <div class="indent-left-margin"></div>
               <div class="indent-content">
-                <h2>
-                  <a href="index.html">Index</a>
-                </h2><div id="toc"><h2>Table of Contents</h2><ul><li><a href="#sites_Overview">Sites Overview</a><ul><li><a href="#advanced_configuration">Advanced configuration</a></li></ul></li><li><a href="#sites_Reference">Sites Reference</a><ul><li><a href="#sites">sites()</a></li><li><a href="#sites.add">sites.add(names, [roles], [config], [merge])</a></li><li><a href="#sites.get">sites.get(name)</a></li><li><a href="#sites.list">sites.list(roles, [filter])</a></li><li><a href="#sites.update">sites.update(inroles, [roles], [config], [merge])</a></li><li><a href="#jobs.sites">jobs.sites</a></li></ul></li></ul><hr /></div>
-<h2 id="sites_Overview">Sites Overview</h2>
+                <div class="first wide small">
+                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="../index.html">Back to Overview ...</a></li></ul><ul><li><a href="#sites_Overview">Sites Overview</a><ul><li><a href="#advanced_configuration">Advanced configuration</a></li></ul></li><li><a href="#sites_Reference">Sites Reference</a><ul><li><a href="#sites">sites()</a></li><li><a href="#sites.add">sites.add(names, [roles], [config], [merge])</a></li><li><a href="#sites.get">sites.get(name)</a></li><li><a href="#sites.list">sites.list(roles, [filter])</a></li><li><a href="#sites.update">sites.update(inroles, [roles], [config], [merge])</a></li><li><a href="#jobs.sites">jobs.sites</a></li></ul></li></ul></div>
+                </div>
+                <div class="last narrow">
+                  <h2>
+                    Resources
+                  </h2>
+                  <h3>
+                    GitHub Repository
+                  </h3>
+                  <p>
+                    <a href="https://github.com/dvidelabs/poly.shell">https://github.com/dvidelabs/poly.shell</a>
+                  </p>
+                  <h3>
+                    Online Documentation
+                  </h3>
+                  <p>
+                    <a href="http://dvidelabs.github.com/poly.shell">http://dvidelabs.github.com/poly.shell</a>
+                  </p>
+                </div>
+                <div class="indent-right-margin"></div>
+              </div>
+            </div>
+            <div class="clear"></div>
+          </div>
+          <div class="single normal">
+            <div class="indent">
+              <div class="indent-left-margin"></div>
+              <div class="indent-content">
+                <h2 id="sites_Overview">Sites Overview</h2>
 
 <p>Sites is a collection of named configurations (environments) that
 provide information about a server. In addition to the stored
@@ -114,10 +142,11 @@ like) that is applied to all to all listed sites. The config is
 <strong>not</strong> assigned to roles. Only those sites currently listed will
 receive the configuration. If a site already exists, the configuration
 object will be extended by adding new names to the old object, but
-entirely overwriting old data where the top-level names conflict.
-Configurations are always cloned so the input object will never be
-changed by modifying a site, and sites added simultaneously will have
-separate copies.</p>
+entirely overwriting old data where the top-level names conflict.</p>
+
+<p>Configurations are cloned when updated so the input object will never
+be changed by modifying a site, although referenced objects might be
+later on.</p>
 
 <p><code>merge</code> : an optional merge function that is applied if a config
 object already exists. The default is to use the _.extend function
@@ -146,7 +175,7 @@ sites.get('site2');
 sites.add('site2',
   { z: 3, info: { tags: [ "test", "online" ], timeout: 4000 } });
 
-sites.get('site1')
+sites.get('site1');
   // =&gt; { name: "site1", x: "1", y: "2" }
 sites.get('site2')
   // =&gt; { name: "site2", x: "1", y: "2", z: 3,
@@ -169,7 +198,7 @@ site, or null if the site is not present.</p>
 
 <p><code>name</code> : name of site.</p>
 
-<pre><code>var sites = require('poly').sites()
+<pre><code>var sites = require('poly').sites();
 
 sites.add('ex', 'www', { host: "app.example.com" });
 sites.get('ex');
@@ -228,17 +257,17 @@ jobs2 = poly.jobs(sites);
   // sites === jobs2.sites</code></pre>
               </div>
               <div class="indent-right-margin"></div>
-              <div class="clear"></div>
             </div>
           </div>
+          <div class="clear"></div>
         </div>
-      </div>
-    </div><script type="text/javascript" src="../js/sh_main.js">
-</script><script type="text/javascript" src="../js/sh_javascript.min.js">
+      </div><script type="text/javascript" src="js/sh_main.js">
+</script><script type="text/javascript" src="js/sh_javascript.min.js">
 </script><script type="text/javascript">
 //<![CDATA[
-    highlight(undefined, undefined, 'pre');
-    //]]>
-    </script>
+      highlight(undefined, undefined, 'pre');
+      //]]>
+      </script>
+    </div>
   </body>
 </html>
