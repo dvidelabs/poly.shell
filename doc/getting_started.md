@@ -1,4 +1,4 @@
-## Getting Started
+## Configuring Sites and Running Jobs
 
 A basic example running multiple shells on two sites; here two different locations
 on the same host to simplify the setup.

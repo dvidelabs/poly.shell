@@ -83,6 +83,7 @@ wait for completion with a numeric error code:
         console.log("ls failed with error code: " + err);
       else
         console.log("done");
+    });
 
 ### Capturing Output
 
@@ -93,20 +94,21 @@ captures the output to a buffer for use in callbacks:
 
     shell().run("ls", function(ec, capture) {
         if(!ec)
-          console.log("output was: " + capture() + "!");
-    }
+          console.log("output was: " + capture.out() + "!");
+    });
 
-Notice that `capture` is a function that we call to access the
-captured output. This converts the internal buffers to a string while
-avoiding the conversion for commands that do not need it.
+Notice that `capture` is an object with two functions:
+`capture.out([encoding = 'utf8'])` and `capture.err([encoding =
+'utf8'])`. Each call converts the captured buffers to a string with
+the optional encoding.
 
-The capture is limited to 64K, but can be changed using the
-`option.captureLimit` in the Shell constructor (this is also a site
-configuration option). Any output beyond the limit will not show up in
-the output() function, but will still be written to the output stream.
-Capturing can be disabled by setting `captureLimit = 0` If no callback
-is given, output is not captured at all, but still written to the
-output stream.
+The capture is limited to 64K per stream, but this can be changed
+using the `option.captureLimit` in the Shell constructor (this is also
+a site configuration option). Any output beyond the limit will not
+show up in the output() function, but will still be written to the
+output stream. Capturing can be disabled by setting `captureLimit = 0`
+If no callback is given, output is not captured at all, but still
+written to the output stream.
 
 ### Redirecting Output
 
@@ -197,7 +199,8 @@ password before asking the user:
 
     host.promptPassword();
     host.sudo("ls", function(err) {
-      if(err) { host.resetPassword(); } });
+      if(err) { host.resetPassword(); }
+    });
 
 In the above example, we have chosen to reset the password after the
 shell returns.
@@ -246,7 +249,9 @@ The above functions are really convenience functions calling the lower
 level `shell.upsync` and `shell.downsync` functions which take
 additional rsync arguments. The up- and download functions are
 implemented by these functions using `['-azP']` as argument. The up-
-and downmirror functions uses the arguments `['-azP','--delete']`:
+and downmirror functions uses the arguments `['-azP','--delete']`.
+
+Here an example of a custom download function:
 
     var mydownload = function(host, port, user, sources, dest) {
       shell({ host: host, user: user, port: port}
@@ -257,7 +262,7 @@ Note: `rsync` runs via ssh. `options.port` and `options.user`
 are passed to rsync using the rsync -e option. For example:
 
     var host = shell({ host: "example.com",
-      port: 10000, user: beatrice });
+      port: 10000, user: "beatrice" });
     host.upsync("localfile", "destfile", ['-z']);
 
 becomes:

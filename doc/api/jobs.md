@@ -50,17 +50,14 @@ points to an action object with several other useful features including
     var email = require('my favorite email package');
     
     jobs.add('upload-web', 'web', function() {
-      cb = this.async();
-      this.shell.run("scripts/deploy.sh", cb);
-    }
+      this.shell.run("scripts/deploy.sh", this.async());
+    });
     jobs.add('upload-web', 'web', function() {
-      cb = this.async();
-      this.shell.run("scripts/backup.sh", cb);
-    }
+      this.shell.run("scripts/backup.sh", this.async());
+    });
     jobs.add('upgrade-web', 'web', function() {
-      cb = this.async();
-      this.shell.run("scripts/upgrade.sh", cb);
-    }
+      this.shell.run("scripts/upgrade.sh", this.async());
+    });
     jobs.runSequential(['upload-web', 'upgrade-web'], 'web',
       { breakOnError: true },
       function(err) {
@@ -115,8 +112,8 @@ identifiers prefixed by the batch identifier. The identifiers are used
 extensively in logging, and are also useful for creating temporary
 files.
 
-
-Multiple actions within a single job always run in parallel.
+Multiple actions within a single job always run in parallel on the
+same site.
 
 `jobs` : job name or (nested) array of job names. Jobs run in order at
 each site, but in parallel across different sites.

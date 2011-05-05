@@ -4,7 +4,6 @@
     argv[2] = template file
     argv[3] = input file
     argv[4] = output file
-
 */
 var fs = require("fs"),
     path = require("path"),
@@ -14,6 +13,15 @@ var fs = require("fs"),
 
 var template = fs.readFileSync(argv[2], "utf8");
 
+function backpath(p1, p2) {
+  p1 = path.dirname(path.normalize(p1));
+  p2 = path.dirname(path.normalize(p2));
+  if(p2.length <=  p1.length)
+    return "" // also handles README files from parent directory
+  return p2.replace(p1, "").replace(/[\/\\]([^\/\\])+/g, "../");
+}
+
+var docroot = backpath(argv[2], argv[3]);
 
 function formatIdString(str) {
   str = str
@@ -23,6 +31,14 @@ function formatIdString(str) {
   return str.substr(0,1).toLowerCase() + str.substr(1);
 }
 
+function cap(name) {
+  return name.replace( /(^| )([a-z])/g , function(m,p1,p2){ return p1+p2.toUpperCase(); } );
+}
+
+function filenameToTitle(fn) {
+  return '<h1>' + cap(fn.replace('_', " ")) + '</h1>' + 
+    '<p></p><p><a href="' + docroot + 'index.html">... back to overview</a></p>';
+}
 
 function generateToc(data) {
   var last_level = 0
@@ -97,7 +113,8 @@ function convertData(data) {
 if (argc > 3) {
   var filename = argv[3],
       output = template,
-      html;
+      html,
+      toc;
 
   fs.readFile(filename, "utf8", function(err, data) {
     if (err) throw err;
@@ -106,23 +123,27 @@ if (argc > 3) {
     data = loadIncludes(data, filename);
     // go markdown.
     html = convertData(data);
-    
+    toc = "";
     filename = path.basename(filename, ".md");
 
     if (filename != "_toc" && filename != "index") {
       if (data) {
-        html = generateToc(data) + "\n" + html;
+        toc = generateToc(data);
       }
-
-      output = output.replace("{{section}}", filename+" - ")
+      output = output.replace("{{section}}", filename+" - ");
+      output = output.replace("{{section-title}}", filenameToTitle(filename));
     } else {
       output = output.replace("{{section}}", "");
+      output = output.replace("{{section-title}}", "");
       output = output.replace(/<body([^>]*)>/, '<body class="'+filename+'" $1>');
     }
+    output = output.replace(/\{\{docroot\}\}/g, docroot);
+    
     if (html.length == 0) {
       html = "Sorry, this section is currently undocumented, \
 but we'll be working on it.";
     }
+    output = output.replace("{{toc}}", toc);
     output = output.replace("{{content}}", html);
 
     if (argc > 4) {

@@ -1,7 +1,0 @@
-* [Shell](shell.html)
-* [Jobs](jobs.html)
-* [Sites](sites.html)
-* [Environments](envs.html)
-* [Password](password.html)
-* [Action](action.html)
-* [Schedule](schedule.html)

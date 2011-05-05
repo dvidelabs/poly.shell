@@ -15,13 +15,13 @@ docinit:
 	@cp doc/js/* build/doc/js
 
 build/doc/api/%.html: doc/api/%.md docinit
-	$(NODE) ext/doctool/doctool.js doc/html/api-layout.html $< > $@
+	$(NODE) ext/doctool/doctool.js doc/layout.html $< $@
 
 build/doc/%.html: doc/%.md docinit
-	$(NODE) ext/doctool/doctool.js doc/html/layout.html $< > $@
+	$(NODE) ext/doctool/doctool.js doc/layout.html $< $@
 
 build/doc/readme.html: README.md docinit
-	$(NODE) ext/doctool/doctool.js doc/html/layout.html $< > $@
+	$(NODE) ext/doctool/doctool.js doc/layout.html $< $@
 
 doc: $(apidocs) $(docs) build/doc/readme.html
 

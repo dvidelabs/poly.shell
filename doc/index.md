@@ -1,15 +1,14 @@
 ## Introduction
 
 * [ReadMe](readme.html)
-* [Getting Started](gettingstarted.html)
+* [Getting Started](getting_started.html)
 
 ## API
 
-* [Index](api/index.html)
 * [Shell](api/shell.html)
 * [Jobs](api/jobs.html)
 * [Sites](api/sites.html)
-* [Environments](api/envs.html)
+* [Envs](api/envs.html)
 * [Password](api/password.html)
 
 ## Invocation Objects

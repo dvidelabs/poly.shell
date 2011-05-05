@@ -1,5 +1,5 @@
 # Poly.shell
-## - distributed shell job control with role based configuration
+## - distributed shell job control with role based configuration for Node.js
 
 Poly.shell is primarily intended to administer server clusters, but it
 can also be used to schedule other kinds of distributed computation, or
@@ -27,12 +27,23 @@ or to run commands on a single remote system:
 
     require('poly').shell('example.com').run("ls");
 
+## Resources
 
+Repository:
+
+<https://github.com/dvidelabs/poly.shell>
+
+Online Documentation:
+
+<http://dvidelabs.github.com/poly.shell/>
 
 ## Installation
 
-Download to some user local folder.
+To install latest public release with npm:
 
+    npm install -g poly
+    
+Or download or clone from github to some user local folder.
 Enter folder and install using npm:
 
     npm install
@@ -83,7 +94,7 @@ and run on multiples sites:
     });
 
     jobs.add('deploy', 'app', function() {
-      var status = {}
+      var status = {};
       var cb = this.async(); // hold next job until script completes
       this.shared[this.site.name] = status;
       this.shell.run("mydeployscript.sh", function(ec, capture) {
@@ -121,7 +132,7 @@ and run on multiples sites:
 
     jobs.add('prepare', 'local', function() {
       console.log("todo checkout data into this.site.scripts and this.site.www");
-    }
+    });
 
     // prepare data for upload on local system
     jobs.run('prepare', function() {

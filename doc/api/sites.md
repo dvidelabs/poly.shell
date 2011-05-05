@@ -88,9 +88,10 @@ like) that is applied to all to all listed sites. The config is
 receive the configuration. If a site already exists, the configuration
 object will be extended by adding new names to the old object, but
 entirely overwriting old data where the top-level names conflict.
-Configurations are always cloned so the input object will never be
-changed by modifying a site, and sites added simultaneously will have
-separate copies.
+
+Configurations are cloned when updated so the input object will never
+be changed by modifying a site, although referenced objects might be
+later on.
 
 `merge` : an optional merge function that is applied if a config
 object already exists. The default is to use the _.extend function
@@ -120,7 +121,7 @@ changed for "personal" use without ill-effects after calling
     sites.add('site2',
       { z: 3, info: { tags: [ "test", "online" ], timeout: 4000 } });
     
-    sites.get('site1')
+    sites.get('site1');
       // => { name: "site1", x: "1", y: "2" }
     sites.get('site2')
       // => { name: "site2", x: "1", y: "2", z: 3,
@@ -143,7 +144,7 @@ site, or null if the site is not present.
 
 `name` : name of site.
 
-    var sites = require('poly').sites()
+    var sites = require('poly').sites();
     
     sites.add('ex', 'www', { host: "app.example.com" });
     sites.get('ex');
