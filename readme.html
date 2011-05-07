@@ -26,7 +26,7 @@
               <div class="indent-left-margin"></div>
               <div class="indent-content">
                 <div class="first wide small">
-                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="index.html">Back to Overview ...</a></li></ul><ul><li><a href="#poly.shell">Poly.shell</a><ul><li><a href="#resources">Resources</a></li><li><a href="#installation">Installation</a></li><li><a href="#coffeeScript">CoffeeScript</a></li><li><a href="#job_Scheduling">Job Scheduling</a></li><li><a href="#passwords">Passwords</a></li><li><a href="#scheduling">Scheduling</a></li></ul></li></ul></div>
+                  <div id="toc"><h2>Table of Contents</h2><ul><li><a href="index.html">Back to Overview ...</a></li></ul><ul><li><a href="#poly.shell">Poly.shell</a><ul><li><a href="#resources">Resources</a></li><li><a href="#installation">Installation</a></li><li><a href="#coffeeScript">CoffeeScript</a></li><li><a href="#passwords">Passwords</a></li><li><a href="#scheduling">Scheduling</a></li></ul></li></ul></div>
                 </div>
                 <div class="last narrow">
                   <h2>
@@ -84,6 +84,47 @@ local shell commands:</p>
 
 <pre><code>require('poly').shell('example.com').run("ls");</code></pre>
 
+<p>Poly.shell can also run multiple jobs in different roles:</p>
+
+<pre><code>poly = require('poly');
+jobs = poly.jobs();
+sites = jobs.sites;
+
+sites.add('my-local-site', ['role-x', 'role-y']);
+sites.add('my-remote-site-1', 'role-x', { host: 'app1.example.com' });
+sites.add('my-remote-site-2', ['role-x', 'role-y'], { host: 'app2.example.com' });
+
+jobs.add('job-a', 'role-x', function() {
+  this.shell.run("echo hello &gt; " + this.site.name + ".flag", this.async());
+  var x = this.shared.visited || [];
+  x.push(this.site.name);
+  this.shared.visited = x;
+});
+
+jobs.add('job-b', 'role-y', function() {
+  //...
+});
+
+jobs.run(['job-a', 'job-b'], function() {
+  console.log "all jobs done";
+  console.log this.shared.visited;
+});</code></pre>
+
+<p>Here we created 3 different local and remote sites where jobs can
+run. We use the shell to access the remote systems and the role names
+to decide which jobs to run where.</p>
+
+<p>Because the same job runs on multiple sites there are different ways
+to synchronise. The default is to start the first job in parallel on
+all matching sites and each site will go on to the next job as soon as
+its current job invocation is complete, like a relay race.</p>
+
+<p>There are different run schedules (parallel, atomic, ...), and
+<code>jobs.run</code> can be restricted to only run jobs on sites with certain
+roles. Whenever a site does not have a role that match the next job,
+the site will skip that job and immediately proceed with the next job
+listed.</p>
+
 <h2 id="resources">Resources</h2>
 
 <p>Repository:</p>
@@ -130,90 +171,6 @@ If, for some reason (including debugging), a JavaScript version is needed,
 a JavaScript only module can be created in sub-folder using:</p>
 
 <pre><code>make js</code></pre>
-
-<h2 id="job_Scheduling">Job Scheduling</h2>
-
-<p>For more complex work, <code>jobs()</code> provides a job control
-system to define named jobs that can be assembled in different schedules
-and run on multiples sites:</p>
-
-<pre><code>var jobs = require('poly').jobs();
-var sites = jobs.sites;
-var email = { send: function(to, title, body) { console.log "implement this"; } };
-
-sites.add('local', { scripts: "~/repository/scripts", www: "~/stage/www" });
-sites.add('appsvr-busy', ['app', 'primary'], { host: "app1.example.com" });
-sites.add('appsvr-standby', 'app', { host: "app2.example.com" });
-
-sites.update('app', {
-  admin: "admin@example.com",
-  adminAlert: function(title, body) { email.send(this.admin, title, body); };
-});
-
-jobs.add('deploy', 'app', function() {
-  var status = {};
-  var cb = this.async(); // hold next job until script completes
-  this.shared[this.site.name] = status;
-  this.shell.run("mydeployscript.sh", function(ec, capture) {
-    status.ok = !ec;
-    if(ec)
-      this.site.adminAlert("deploy failed on " + site.name, capture());
-    cb(); // don't fail here, next job should check status
-  });
-
-jobs.add('snapshot', 'app', function() {
-
-  // Use this.shared to convey information to other jobs
-  var status = this.shared[this.site.name] || {};
-
-  // We might as well do the grunt work locally on the remote site
-  // using shell scripts, or perhaps even Node.js poly.shell scripts.
-  var scripts = ["scripts/myinit", "scripts/mybackup"];
-
-  if(status.ok)
-    scripts.shift();
-  else
-    scripts.push("scripts/myrollback");
-
-  // hold next job until script completes by acquiring a async callback
-  this.shell.run(scripts, this.async());
-});
-
-jobs.add('update', 'app', function() {
-  env = sites.get('local');
-  // run two concurrent rsyncs, but don't run next job until
-  // both rsyncs are done (this.async() adds refcount)
-  this.shell.upload(env.scripts, "scripts", this.async());
-  this.shell.upload(env.www, "www", this.async());
-});
-
-jobs.add('prepare', 'local', function() {
-  console.log("todo checkout data into this.site.scripts and this.site.www");
-});
-
-// prepare data for upload on local system
-jobs.run('prepare', function() {
-  // hold all jobs on all sites until we have prepared data for update
-  // then run the following in sequence on each site,
-  // but concurrently for all sites
-  // ( in this example it will spawn 6 concurrent rsync commands )
-  this.run(['update', 'snapshot', 'deploy', 'snapshot']);
-});</code></pre>
-
-<p>In the above script jobs execute in the default schedule
-<code>site-sequential</code> meaning that jobs on different sites executes in
-parallel, but in sequence on each site.</p>
-
-<p>Sites are used to define a logical unit of configuration such that a
-physical host can represent multiple sites - for example if a host
-both operates a database and two different web domains.</p>
-
-<p>Roles are used to name groups of sites in a server cluster. This makes
-it easy to assign jobs to specific sites, and also to configure
-multiple sites consistently with common settings.</p>
-
-<p>Shells are can redirect output, so it is possible to integrate the job
-runner with a web application framework such as <code>Express</code> for <code>Node.js</code>.</p>
 
 <h2 id="passwords">Passwords</h2>
 
