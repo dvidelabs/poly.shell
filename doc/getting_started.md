@@ -83,7 +83,7 @@ for more inspiration.
       this.shell.run("mydeployscript.sh", function(ec, capture) {
         status.ok = !ec;
         if(ec)
-          this.site.adminAlert("deploy failed on " + site.name, capture());
+          this.site.adminAlert("deploy failed on " + site.name, capture.out());
         cb(); // don't fail here, next job should check status
       });
 
@@ -138,6 +138,7 @@ Roles are used to name groups of sites in a server cluster. This makes
 it easy to assign jobs to specific sites, and also to configure
 multiple sites consistently with common settings.
 
-Shells are can redirect output, so it is possible to integrate the job
-runner with a web application framework such as `Express` for `Node.js`.
+Shells can redirect output, so it is possible to integrate the job
+runner with a web application framework such as `Express` for
+`Node.js`.
 

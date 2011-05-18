@@ -14,7 +14,7 @@ the shell name is not the site name but `this.issuer` which is a
 longer unique id including the site name for better logging
 consistency.
 
-See also `sudo` operation below. This also apply when running shells
+See also `sudo` operation below. This also applies when running shells
 under job control.
 
 ### Standalone Shell Usage
@@ -55,9 +55,9 @@ to a single string joined by ' && ', like the last command below:
     host.run("ls && touch hello2.test");
 
 
-Site configurations are used by the `poly.jobs()`, partially to
-initialise remote shells. Here is an example using just site
-configurations and shells without job control.
+Site configurations are used by `poly.jobs()`, partially to initialise
+remote shells. Here is an example using just site configurations and
+shells without job control:
 
     var poly = require('poly');
     var sites = poly.sites();
