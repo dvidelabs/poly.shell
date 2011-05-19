@@ -29,11 +29,17 @@ jobs.run(['myjob', 'testjob'], { log: true }, function () {
   this.report("all jobs completed");
 });
 // only dump reporting and error messages
-jobs.run ['myjob', 'testjob'], { report: true }, function () { this.report("all jobs completed"); };
+jobs.run(['myjob', 'testjob'], { report: true }, function () {
+  this.report("all jobs completed");
+});
 // only dump error messages
-jobs.run ['myjob', 'testjob'], function () { /* all jobs completed */ }
+jobs.run(['myjob', 'testjob'], function () {
+  /* all jobs completed */
+});
 // don't even dump that
-jobs.run ['myjob', 'testjob'], { quiet: true }, function () { /* all jobs completed */ }
+jobs.run(['myjob', 'testjob'], { quiet: true }, function () {
+  /* all jobs completed */
+});
 
 // jobs can be scheduled in different ways,
 // and actions can acquire callbacks using this.async().
