@@ -375,7 +375,7 @@ class Jobs
         w. jobname = jobname
         siteactions = job.siteActions(sched.options.roles)
         w.push siteactions
-        if options.log
+        if sched.options.log
           for site, actions of siteactions
             actioncount += actions.length
             sites[site] = true;
@@ -386,14 +386,13 @@ class Jobs
     errors = 0
     _sites = @sites
     _cb = (err) ->
-      _debug "pending", pending
       ++errors if err
       if pending <= 0
         throw new Error "internal schedule error"
       return if --pending
       pending = 1
       w = q.shift()
-      unless w or (errors and options.breakOnError)
+      if not w or (errors and sched.options.breakOnError)
         return sched._complete(errors or null)
       for siteactions in w
         for site, actions of siteactions
