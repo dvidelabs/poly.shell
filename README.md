@@ -1,6 +1,13 @@
 # Poly.shell
 *- distributed shell job control with role based configuration for Node.js*
 
+This package has been renamed poly.shell, so use `require('poly.shell')`. The `poly` name has been handed over to another project that use the term cross platform. Documentation does NOT reflect this.
+
+This package is no longer actively maintained, but was fairly complete at the time. Nodejs, however, have evolved and may have broken parts. Today Grunt and grunt-ssh fills some of the space this package was intended for.
+
+
+# Original text
+
 Poly.shell is primarily intended to administer server clusters, but it
 can also be used to schedule other kinds of distributed computation, or
 to just run simple shell commands.

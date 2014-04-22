@@ -1,7 +1,7 @@
 {
-  "name": "poly",
+  "name": "poly.shell",
   "main": "lib/index.js",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "MikkelFJ <mikkel@dvide.com>",
   "description": "Poly.shell - distributed shell job control with role based configuration",
   "engines": {
